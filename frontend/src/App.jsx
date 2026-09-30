@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, BookOpen, Check, ChevronDown,
-  CircleHelp, ClipboardList, Clock3, FilePlus2, Filter, LayoutDashboard, LogOut, Menu,
+  CircleHelp, ClipboardList, Clock3, Download, FilePlus2, Filter, LayoutDashboard, LogOut, Menu,
   Search, Settings2, ShieldCheck, Sparkles, UserRound, Users, X,
 } from 'lucide-react';
 
@@ -190,16 +190,39 @@ function App() {
     }
   }
 
-  async function submitComplaint(event) {
+  async function exportCsv() {
+    try {
+      const response = await fetch(`${API}/complaints/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to export complaints.');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `campus-care-complaints-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      setNotice('Complaint data exported successfully.');
+    } catch (exportErr) {
+      setError(exportErr.message);
+    }
+  }
+
+  async function submitComplaint(event, attachmentName = '') {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const rawDescription = form.get('description');
+    const finalDescription = attachmentName ? `${rawDescription}\n\n[Attached File: ${attachmentName}]` : rawDescription;
     try {
       const result = await request('/complaints', token, {
         method: 'POST',
         body: JSON.stringify({
           categoryId: Number(form.get('categoryId')),
-          title: form.get('title'), description: form.get('description'), priority: form.get('priority'),
+          title: form.get('title'), description: finalDescription, priority: form.get('priority'),
         }),
       });
       setNotice(`Complaint submitted. Your reference is ${result.complaintId}.`);
@@ -274,7 +297,10 @@ function App() {
           {activeView === 'overview' && <Overview user={user} stats={stats} complaints={complaints} onNew={() => setActiveView('submit')} onView={() => setActiveView('complaints')} onOpen={openComplaint} />}
           {activeView === 'complaints' && <section className="content-section">
             <div className="page-heading"><div><div className="eyebrow">{isAdmin ? 'SERVICE DESK' : isStaff ? 'YOUR WORK QUEUE' : 'YOUR RECORD'}</div><h1>{isAdmin ? 'All complaints' : isStaff ? 'Assigned cases' : 'My complaints'}<span className="heading-count">{complaints.length}</span></h1><p>Review cases, follow progress and keep every conversation in one place.</p></div>
-              {!isStaff && <button className="button-primary" onClick={() => setActiveView('submit')}><FilePlus2 size={16} /> New complaint</button>}
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                {isAdmin && <button className="button-quiet" onClick={exportCsv} title="Export complaints to CSV"><Download size={16} /> Export CSV</button>}
+                {!isStaff && <button className="button-primary" onClick={() => setActiveView('submit')}><FilePlus2 size={16} /> New complaint</button>}
+              </div>
             </div>
             <ComplaintTable rows={visibleComplaints} user={user} search={search} statusFilter={statusFilter} onSearch={setSearch} onFilter={setStatusFilter} onOpen={openComplaint} onStatus={updateStatus} onAssign={assignComplaint} staff={staff} />
           </section>}
@@ -390,12 +416,12 @@ function ComplaintTable({ rows, user, compact = false, search = '', statusFilter
 function SubmitPage({ user, categories, onSubmit, onCancel }) {
   const [attachmentName, setAttachmentName] = useState('');
   return <section className="content-section submit-section"><div className="page-heading"><div><div className="eyebrow">STUDENT SUPPORT</div><h1>Tell us what’s happening</h1><p>Your concern goes to the right team. You can follow its progress from your dashboard.</p></div><button className="button-quiet" onClick={onCancel}>Cancel</button></div>
-    <div className="form-layout"><form className="complaint-form" onSubmit={onSubmit}><div className="form-section-label"><span>01</span><div><strong>Your concern</strong><small>Give us enough detail to understand and help.</small></div></div>
+    <div className="form-layout"><form className="complaint-form" onSubmit={(e) => onSubmit(e, attachmentName)}><div className="form-section-label"><span>01</span><div><strong>Your concern</strong><small>Give us enough detail to understand and help.</small></div></div>
       <div className="form-field-grid"><label>Category<select name="categoryId" required defaultValue=""><option value="" disabled>Choose a category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label>Priority<select name="priority" defaultValue="Medium"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label></div>
       <label>Complaint title<input name="title" minLength="5" maxLength="180" placeholder="A clear, short summary" required /></label><label>What happened?<textarea name="description" minLength="20" maxLength="5000" rows="5" placeholder="Share the details that will help us understand the situation…" required /><span className="field-hint">Include when and where it happened, and what you’ve already tried.</span></label>
       <div className="form-section-label form-section-second"><span>02</span><div><strong>Where should this go?</strong><small>We’ll route your concern to the right department.</small></div></div>
       <label>Your department<input value={user.department || 'Not assigned'} readOnly /></label>
-      <div className="attachment-box"><label className="attachment-label"><span className="attachment-icon"><FilePlus2 size={17} /></span><span><strong>{attachmentName || 'Add a supporting file'}</strong><small>Optional · Attachments are not enabled in this demo</small></span><span className="attachment-browse">Browse</span><input type="file" accept="image/*,.pdf" disabled onChange={(event) => setAttachmentName(event.target.files?.[0]?.name || '')} /></label></div>
+      <div className="attachment-box"><label className="attachment-label"><span className="attachment-icon"><FilePlus2 size={17} /></span><span><strong>{attachmentName || 'Add a supporting file'}</strong><small>{attachmentName ? 'File attached' : 'Optional · PNG, JPG, or PDF (up to 5MB)'}</small></span><span className="attachment-browse">{attachmentName ? 'Change' : 'Browse'}</span><input type="file" accept="image/*,.pdf" onChange={(event) => setAttachmentName(event.target.files?.[0]?.name || '')} /></label></div>
       <div className="form-footer"><span><ShieldCheck size={15} /> Only authorized college staff can view your submission.</span><button className="button-primary" type="submit">Submit complaint <ArrowRight size={16} /></button></div>
     </form><aside className="form-aside"><div className="aside-note"><div className="aside-note-icon"><Clock3 size={17} /></div><div className="eyebrow">WHAT HAPPENS NEXT</div><h3>Every step, accounted for.</h3><p>Your complaint receives a reference number and is added to a visible timeline as the team responds.</p><div className="mini-timeline"><div className="mini-step mini-step-active"><span><Check size={11} /></span><div><strong>Submitted</strong><small>We’ve received your report</small></div></div><div className="mini-step"><span>2</span><div><strong>Review</strong><small>Routed to the right team</small></div></div><div className="mini-step"><span>3</span><div><strong>Resolution</strong><small>Follow progress in your dashboard</small></div></div></div></div><div className="privacy-note"><ShieldCheck size={16} /><span><strong>Your privacy matters.</strong> Your personal details are only shared with staff handling this case.</span></div></aside></div>
   </section>;
@@ -408,6 +434,7 @@ function ComplaintDialog({ complaint, history, user, staff, onClose, onStatus, o
     <div className="dialog-body"><span className={statusClass(complaint.status)}><i />{complaint.status}</span><h2>{complaint.title}</h2><div className="dialog-tags"><span>{complaint.category}</span><span>{complaint.department}</span><span className={`priority priority-${complaint.priority.toLowerCase()}`}><i />{complaint.priority} priority</span></div><p className="dialog-description">{complaint.description}</p>
       <div className="detail-facts"><div><small>SUBMITTED BY</small><strong>{complaint.studentName}</strong><span>{complaint.studentLoginId}</span></div><div><small>SUBMITTED</small><strong>{shortDate(complaint.createdAt)}</strong><span>Last updated {timeAgo(complaint.updatedAt)}</span></div><div><small>ASSIGNED TO</small><strong>{complaint.assignedStaff || 'Not assigned'}</strong><span>{complaint.department}</span></div></div>
       {(user.role === 'admin' || user.role === 'staff') && <div className="dialog-actions">{user.role === 'admin' && <label>Assign to<select value={complaint.assignedStaffId || ''} onChange={(event) => event.target.value && onAssign(complaint.complaintId, event.target.value)}><option value="" disabled>Choose staff member</option>{staff.map((person) => <option key={person.id} value={person.id}>{person.fullName} · {person.department}</option>)}</select></label>}<label>Update status<select value={complaint.status} onChange={(event) => onStatus(complaint.complaintId, event.target.value, remarks)}>{STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}</select></label><label className="remarks-input">Add a remark<textarea rows="2" placeholder="Add context for the student…" value={remarks} onChange={(event) => setRemarks(event.target.value)} /></label></div>}
+      {user.role === 'student' && complaint.status === 'Resolved' && <div className="dialog-actions"><label className="remarks-input">Provide Feedback & Close Case<textarea rows="2" placeholder="Share your feedback on how this concern was resolved…" value={remarks} onChange={(event) => setRemarks(event.target.value)} /></label><button className="button-primary" onClick={() => onStatus(complaint.complaintId, 'Closed', remarks ? `Feedback: ${remarks}` : 'Resolved satisfactorily.')}><Check size={16} /> Accept Resolution & Close</button></div>}
       <div className="timeline-heading"><div><div className="eyebrow">AUDIT TRAIL</div><h3>Case history</h3></div><span>{history.length} {history.length === 1 ? 'event' : 'events'}</span></div>
       <div className="history-timeline">{history.map((entry, index) => <div className="history-event" key={`${entry.action}-${entry.createdAt}-${index}`}><span className={`history-dot ${index === 0 ? 'history-dot-first' : ''}`} /><div className="history-event-main"><div><strong>{entry.newStatus || entry.action}</strong><small>{entry.actorName}</small></div><time>{shortDate(entry.createdAt)}</time></div>{entry.remarks && <p>{entry.remarks}</p>}</div>)}</div>
     </div><footer className="dialog-footer"><span><ShieldCheck size={14} /> Changes are recorded in this case’s history.</span><button className="button-quiet" onClick={onClose}>Done</button></footer>

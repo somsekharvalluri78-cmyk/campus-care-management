@@ -162,6 +162,35 @@ app.get('/api/complaints', authenticate, asyncRoute(async (request, response) =>
   response.json({ complaints: rows });
 }));
 
+app.get('/api/complaints/export', authenticate, allow('admin'), asyncRoute(async (_request, response) => {
+  const { rows } = await pool.query(`
+    SELECT c.complaint_id AS "ID", c.title AS "Title", cat.name AS "Category",
+           d.name AS "Department", student.full_name AS "Student",
+           student.login_id AS "StudentID", c.priority AS "Priority",
+           c.status AS "Status", staff.full_name AS "AssignedStaff",
+           c.created_at AS "CreatedAt", c.resolved_at AS "ResolvedAt"
+    FROM complaints c
+    JOIN complaint_categories cat ON cat.id = c.category_id
+    JOIN departments d ON d.id = c.department_id
+    JOIN users student ON student.id = c.student_id
+    LEFT JOIN users staff ON staff.id = c.assigned_staff_id
+    ORDER BY c.created_at DESC
+  `);
+  const headers = ['ID', 'Title', 'Category', 'Department', 'Student', 'StudentID', 'Priority', 'Status', 'AssignedStaff', 'CreatedAt', 'ResolvedAt'];
+  const csvRows = [headers.join(',')];
+  for (const row of rows) {
+    const values = headers.map(header => {
+      const val = row[header] ?? '';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    });
+    csvRows.push(values.join(','));
+  }
+  response.setHeader('Content-Type', 'text/csv');
+  response.setHeader('Content-Disposition', 'attachment; filename="campus-care-complaints.csv"');
+  response.send(csvRows.join('\r\n'));
+}));
+
 app.get('/api/complaints/:id', authenticate, asyncRoute(async (request, response) => {
   const { rows } = await pool.query(`${complaintSelect} WHERE c.complaint_id = $1`, [request.params.id]);
   const complaint = rows[0];
@@ -251,7 +280,7 @@ app.patch('/api/complaints/:id/assign', authenticate, allow('admin'), asyncRoute
   }
 }));
 
-app.patch('/api/complaints/:id/status', authenticate, allow('admin', 'staff'), asyncRoute(async (request, response) => {
+app.patch('/api/complaints/:id/status', authenticate, allow('admin', 'staff', 'student'), asyncRoute(async (request, response) => {
   const parsed = statusSchema.safeParse(request.body);
   if (!parsed.success) return response.status(400).json({ error: 'Choose a valid status.' });
   const client = await pool.connect();
@@ -263,7 +292,16 @@ app.patch('/api/complaints/:id/status', authenticate, allow('admin', 'staff'), a
       await client.query('ROLLBACK');
       return response.status(404).json({ error: 'Complaint not found.' });
     }
-    if (request.user.role === 'staff' && complaint.assigned_staff_id !== request.user.userId) {
+    if (request.user.role === 'student') {
+      if (complaint.student_id !== request.user.userId) {
+        await client.query('ROLLBACK');
+        return response.status(404).json({ error: 'Complaint not found.' });
+      }
+      if (complaint.status !== 'Resolved' || parsed.data.status !== 'Closed') {
+        await client.query('ROLLBACK');
+        return response.status(400).json({ error: 'Students can only close complaints that have been marked Resolved.' });
+      }
+    } else if (request.user.role === 'staff' && complaint.assigned_staff_id !== request.user.userId) {
       await client.query('ROLLBACK');
       return response.status(404).json({ error: 'Complaint not found.' });
     }
@@ -273,11 +311,16 @@ app.patch('/api/complaints/:id/status', authenticate, allow('admin', 'staff'), a
        resolved_at = CASE WHEN $1 = 'Resolved' THEN NOW() ELSE resolved_at END,
        closed_at = CASE WHEN $1 = 'Closed' THEN NOW() ELSE closed_at END WHERE id = $2`, [nextStatus, complaint.id],
     );
+    const action = request.user.role === 'student' ? 'Closed with feedback' : 'Status changed';
     await client.query(
       'INSERT INTO complaint_history (complaint_id, user_id, action, old_status, new_status, remarks) VALUES ($1, $2, $3, $4, $5, $6)',
-      [complaint.id, request.user.userId, 'Status changed', complaint.status, nextStatus, parsed.data.remarks],
+      [complaint.id, request.user.userId, action, complaint.status, nextStatus, parsed.data.remarks],
     );
-    await client.query('INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)', [complaint.student_id, 'Complaint updated', `${request.params.id} is now ${nextStatus}.`]);
+    const targetUserId = request.user.role === 'student' ? complaint.assigned_staff_id : complaint.student_id;
+    if (targetUserId) {
+      const msg = request.user.role === 'student' ? `${request.params.id} was reviewed and closed with student feedback.` : `${request.params.id} is now ${nextStatus}.`;
+      await client.query('INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)', [targetUserId, 'Complaint updated', msg]);
+    }
     await client.query('COMMIT');
     response.json({ success: true });
   } catch (error) {
