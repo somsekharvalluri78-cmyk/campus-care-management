@@ -307,9 +307,9 @@ app.patch('/api/complaints/:id/status', authenticate, allow('admin', 'staff', 's
     }
     const nextStatus = parsed.data.status;
     await client.query(
-      `UPDATE complaints SET status = $1, updated_at = NOW(),
-       resolved_at = CASE WHEN $1 = 'Resolved' THEN NOW() ELSE resolved_at END,
-       closed_at = CASE WHEN $1 = 'Closed' THEN NOW() ELSE closed_at END WHERE id = $2`, [nextStatus, complaint.id],
+      `UPDATE complaints SET status = $1::varchar, updated_at = NOW(),
+       resolved_at = CASE WHEN $1::varchar = 'Resolved' THEN NOW() ELSE resolved_at END,
+       closed_at = CASE WHEN $1::varchar = 'Closed' THEN NOW() ELSE closed_at END WHERE id = $2`, [nextStatus, complaint.id],
     );
     const action = request.user.role === 'student' ? 'Closed with feedback' : 'Status changed';
     await client.query(
