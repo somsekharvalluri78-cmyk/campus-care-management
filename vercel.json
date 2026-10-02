@@ -1,11 +1,11 @@
 {
-  "buildCommand": "npm run build --workspace frontend",
-  "outputDirectory": "frontend/dist",
-  "framework": "vite",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://campus-care-trzj.onrender.com/api/$1"
+      "source": "/api/:path*",
+      "destination": "https://campus-care-trzj.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",

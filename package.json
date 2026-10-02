@@ -2,13 +2,14 @@
   "name": "college-complaint-management-system",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "workspaces": [
     "frontend",
     "backend"
   ],
   "scripts": {
     "dev": "concurrently -k -n api,web -c green,cyan \"npm run dev --workspace backend\" \"npm run dev --workspace frontend\"",
-    "build": "npm run build --workspace frontend",
+    "build": "node scripts/build.js",
     "start": "npm run start --workspace backend",
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
