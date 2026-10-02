@@ -7,8 +7,14 @@
 ![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/somsekharvalluri78-cmyk/campus-care-management)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7?logo=render&logoColor=white)](https://campus-care-trzj.onrender.com)
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Live%20Frontend-black?logo=vercel)](https://campus-care-management.vercel.app)
 
 > **Campus Care** is a modern, full-stack, role-based College Complaint Management System built with **React**, **Express**, and **PostgreSQL**. It empowers students to submit and track issues, gives department officers a focused queue to investigate and resolve grievances, and equips administrators with analytics, staff assignment tools, and spreadsheet reporting.
+
+**🌐 Live Deployments:**
+- **Full-Stack Application (Express + PostgreSQL + React):** [https://campus-care-trzj.onrender.com](https://campus-care-trzj.onrender.com)
+- **Frontend SPA (Vercel):** [https://campus-care-management.vercel.app](https://campus-care-management.vercel.app)
 
 Based on [`spec.md`](spec.md), which serves as the specification and single source of truth for product requirements.
 
