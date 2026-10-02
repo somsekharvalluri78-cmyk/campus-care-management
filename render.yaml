@@ -3,7 +3,7 @@ services:
     name: campus-care
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm run db:setup --workspace backend && npm run db:seed --workspace backend && npm start
     envVars:
       - key: NODE_ENV
