@@ -223,9 +223,38 @@ app.get('/api/categories', authenticate, asyncRoute(async (_request, response) =
   response.json({ categories: rows });
 }));
 
+async function ensureComplaintColumns() {
+  try {
+    await pool.query(`
+      ALTER TABLE complaints
+        ADD COLUMN IF NOT EXISTS college_name TEXT,
+        ADD COLUMN IF NOT EXISTS campus_name TEXT,
+        ADD COLUMN IF NOT EXISTS complaint_date VARCHAR(40),
+        ADD COLUMN IF NOT EXISTS complaint_time VARCHAR(40),
+        ADD COLUMN IF NOT EXISTS block_name TEXT,
+        ADD COLUMN IF NOT EXISTS floor_number VARCHAR(40),
+        ADD COLUMN IF NOT EXISTS room_number VARCHAR(40),
+        ADD COLUMN IF NOT EXISTS days_facing_problem TEXT,
+        ADD COLUMN IF NOT EXISTS problem_appearance TEXT,
+        ADD COLUMN IF NOT EXISTS suggestions TEXT,
+        ADD COLUMN IF NOT EXISTS members_affected TEXT,
+        ADD COLUMN IF NOT EXISTS emergency_type VARCHAR(60),
+        ADD COLUMN IF NOT EXISTS college_register_no VARCHAR(80);
+    `);
+  } catch (err) {
+    console.warn('Complaint columns verification note:', err.message);
+  }
+}
+ensureComplaintColumns();
+
 const complaintSelect = `SELECT c.id, c.complaint_id AS "complaintId", c.title, c.description, c.priority, c.status,
   c.is_deleted AS "isDeleted", c.deleted_at AS "deletedAt",
   c.created_at AS "createdAt", c.updated_at AS "updatedAt", c.resolved_at AS "resolvedAt",
+  c.college_name AS "collegeName", c.campus_name AS "campusName", c.complaint_date AS "complaintDate",
+  c.complaint_time AS "complaintTime", c.block_name AS "blockName", c.floor_number AS "floorNumber",
+  c.room_number AS "roomNumber", c.days_facing_problem AS "daysFacingProblem", c.problem_appearance AS "problemAppearance",
+  c.suggestions, c.members_affected AS "membersAffected", c.emergency_type AS "emergencyType",
+  c.college_register_no AS "collegeRegisterNo",
   cat.name AS category, d.name AS department, student.full_name AS "studentName", student.login_id AS "studentLoginId",
   staff.full_name AS "assignedStaff", c.assigned_staff_id AS "assignedStaffId", c.student_id AS "studentUserId"
   FROM complaints c JOIN complaint_categories cat ON cat.id = c.category_id
@@ -338,9 +367,22 @@ app.get('/api/complaints/:id', authenticate, asyncRoute(async (request, response
 app.post('/api/complaints', authenticate, allow('student'), asyncRoute(async (request, response) => {
   const parsed = z.object({
     categoryId: z.coerce.number().int().positive(),
-    title: z.string().trim().min(5).max(180),
-    description: z.string().trim().min(20).max(5000),
-    priority: z.enum(['Low', 'Medium', 'High', 'Critical']),
+    title: z.string().trim().min(3).max(180),
+    description: z.string().trim().min(5).max(5000),
+    priority: z.enum(['Low', 'Medium', 'High', 'Critical']).default('Medium'),
+    collegeName: z.string().trim().optional().default(''),
+    campusName: z.string().trim().optional().default(''),
+    complaintDate: z.string().trim().optional().default(''),
+    complaintTime: z.string().trim().optional().default(''),
+    blockName: z.string().trim().optional().default(''),
+    floorNumber: z.string().trim().optional().default(''),
+    roomNumber: z.string().trim().optional().default(''),
+    daysFacingProblem: z.string().trim().optional().default(''),
+    problemAppearance: z.string().trim().optional().default(''),
+    suggestions: z.string().trim().optional().default(''),
+    membersAffected: z.string().trim().optional().default(''),
+    emergencyType: z.string().trim().optional().default(''),
+    collegeRegisterNo: z.string().trim().optional().default(''),
   }).safeParse(request.body);
   if (!parsed.success) return response.status(400).json({ error: parsed.error.issues[0]?.message || 'Check the complaint form.' });
   const client = await pool.connect();
@@ -349,21 +391,60 @@ app.post('/api/complaints', authenticate, allow('student'), asyncRoute(async (re
     const { rows: identityRows } = await client.query('SELECT department_id FROM users WHERE id = $1', [request.user.userId]);
     const dept = identityRows[0]?.department_id || 1;
     const temporaryId = `TMP-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const effectivePriority = parsed.data.emergencyType ? 'Critical' : parsed.data.priority;
     const insert = await client.query(
-      `INSERT INTO complaints (complaint_id, student_id, category_id, department_id, title, description, priority)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at`,
-      [temporaryId, request.user.userId, parsed.data.categoryId, dept, parsed.data.title, parsed.data.description, parsed.data.priority],
+      `INSERT INTO complaints (
+         complaint_id, student_id, category_id, department_id, title, description, priority,
+         college_name, campus_name, complaint_date, complaint_time, block_name, floor_number,
+         room_number, days_facing_problem, problem_appearance, suggestions, members_affected,
+         emergency_type, college_register_no
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+       RETURNING id, created_at`,
+      [
+        temporaryId,
+        request.user.userId,
+        parsed.data.categoryId,
+        dept,
+        parsed.data.title,
+        parsed.data.description,
+        effectivePriority,
+        parsed.data.collegeName || null,
+        parsed.data.campusName || null,
+        parsed.data.complaintDate || null,
+        parsed.data.complaintTime || null,
+        parsed.data.blockName || null,
+        parsed.data.floorNumber || null,
+        parsed.data.roomNumber || null,
+        parsed.data.daysFacingProblem || null,
+        parsed.data.problemAppearance || null,
+        parsed.data.suggestions || null,
+        parsed.data.membersAffected || null,
+        parsed.data.emergencyType || null,
+        parsed.data.collegeRegisterNo || null,
+      ],
     );
     const complaintId = makeComplaintId(Number(insert.rows[0].id));
     await client.query('UPDATE complaints SET complaint_id = $1 WHERE id = $2', [complaintId, insert.rows[0].id]);
     await client.query(
       'INSERT INTO complaint_history (complaint_id, user_id, action, new_status, remarks) VALUES ($1, $2, $3, $4, $5)',
-      [insert.rows[0].id, request.user.userId, 'Created', 'Submitted', 'Complaint submitted through the student portal.'],
+      [
+        insert.rows[0].id,
+        request.user.userId,
+        'Created',
+        'Submitted',
+        parsed.data.emergencyType
+          ? `[EMERGENCY DISPATCH: ${parsed.data.emergencyType}] Registered via student portal.`
+          : 'Complaint submitted through the student portal.',
+      ],
     );
+    const notifTitle = parsed.data.emergencyType
+      ? `🚨 EMERGENCY ALERT: ${parsed.data.emergencyType.toUpperCase()}`
+      : 'New complaint submitted';
     await client.query(
       `INSERT INTO notifications (user_id, title, message)
-       SELECT id, 'New complaint submitted', $1 FROM users WHERE role = 'admin'`,
-      [`${complaintId} is ready for review.`],
+       SELECT id, $1, $2 FROM users WHERE role = 'admin'`,
+      [notifTitle, `${complaintId}: ${parsed.data.title}`],
     );
     await client.query('COMMIT');
     response.status(201).json({ complaintId });

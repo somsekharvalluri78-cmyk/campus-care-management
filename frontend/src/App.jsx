@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
-  Activity, AlertTriangle, Archive, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, BookOpen, Check, ChevronDown,
-  CircleHelp, ClipboardList, Clock3, Download, Eye, FilePlus2, Filter, KeyRound, LayoutDashboard, Lock, LogOut, Menu,
-  RotateCcw, Search, Settings2, ShieldCheck, Sparkles, Trash2, UserPen, UserRound, Users, X,
+  Activity, AlertTriangle, Archive, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, BookOpen,
+  Building2, Calendar, Check, ChevronDown, CircleHelp, ClipboardList, Clock, Clock3, Download, Eye,
+  FilePlus2, Filter, Flame, HeartPulse, KeyRound, LayoutDashboard, Lock, LogOut, Menu,
+  RotateCcw, Search, Settings2, ShieldAlert, ShieldCheck, Siren, Sparkles, Trash2, UserPen, UserRound, Users, X,
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '/api';
@@ -354,12 +355,28 @@ function App() {
     const rawDescription = form.get('description');
     const finalDescription = attachmentName ? `${rawDescription}\n\n[Attached File: ${attachmentName}]` : rawDescription;
     try {
+      const payload = {
+        categoryId: Number(form.get('categoryId')),
+        title: form.get('title'),
+        description: finalDescription,
+        priority: form.get('priority') || 'Medium',
+        collegeName: form.get('collegeName') || '',
+        campusName: form.get('campusName') || '',
+        complaintDate: form.get('complaintDate') || '',
+        complaintTime: form.get('complaintTime') || '',
+        blockName: form.get('blockName') || '',
+        floorNumber: form.get('floorNumber') || '',
+        roomNumber: form.get('roomNumber') || '',
+        daysFacingProblem: form.get('daysFacingProblem') || '',
+        problemAppearance: form.get('problemAppearance') || '',
+        suggestions: form.get('suggestions') || '',
+        membersAffected: form.get('membersAffected') || '',
+        emergencyType: form.get('emergencyType') || '',
+        collegeRegisterNo: form.get('collegeRegisterNo') || '',
+      };
       const result = await request('/complaints', token, {
         method: 'POST',
-        body: JSON.stringify({
-          categoryId: Number(form.get('categoryId')),
-          title: form.get('title'), description: finalDescription, priority: form.get('priority'),
-        }),
+        body: JSON.stringify(payload),
       });
       setNotice(`Complaint submitted. Your reference is ${result.complaintId}.`);
       formElement.reset();
@@ -2422,24 +2439,475 @@ function ComplaintTable({
 
 function SubmitPage({ user, categories, onSubmit, onCancel }) {
   const [attachmentName, setAttachmentName] = useState('');
-  return <section className="content-section submit-section"><div className="page-heading"><div><div className="eyebrow">STUDENT SUPPORT</div><h1>Tell us what’s happening</h1><p>Your concern goes to the right team. You can follow its progress from your dashboard.</p></div><button className="button-quiet" onClick={onCancel}>Cancel</button></div>
-    <div className="form-layout"><form className="complaint-form" onSubmit={(e) => onSubmit(e, attachmentName)}><div className="form-section-label"><span>01</span><div><strong>Your concern</strong><small>Give us enough detail to understand and help.</small></div></div>
-      <div className="form-field-grid"><label>Category<select name="categoryId" required defaultValue=""><option value="" disabled>Choose a category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label>Priority<select name="priority" defaultValue="Medium"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label></div>
-      <label>Complaint title<input name="title" minLength="5" maxLength="180" placeholder="A clear, short summary" required /></label><label>What happened?<textarea name="description" minLength="20" maxLength="5000" rows="5" placeholder="Share the details that will help us understand the situation…" required /><span className="field-hint">Include when and where it happened, and what you’ve already tried.</span></label>
-      <div className="form-section-label form-section-second"><span>02</span><div><strong>Where should this go?</strong><small>We’ll route your concern to the right department.</small></div></div>
-      <label>Your department
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {user.department && (() => {
-            const dStyle = getDeptStyle({ name: user.department });
-            return <span className="dept-badge" style={{ backgroundColor: dStyle.bg, color: dStyle.color, borderColor: dStyle.border, borderWidth: 1, borderStyle: 'solid' }}>{dStyle.badge}</span>;
-          })()}
-          <input value={user.department || 'Not assigned'} readOnly style={{ flex: 1 }} />
+  const [selectedEmergency, setSelectedEmergency] = useState('');
+
+  // Date default to today
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [complaintDate, setComplaintDate] = useState(todayStr);
+
+  // Time: default locked sign-in time
+  const defaultTimeStr = useMemo(() => {
+    return new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(new Date());
+  }, []);
+
+  const defaultUsername = user.loginId || user.studentId || 'STUDENT';
+  const defaultRegisterNo = user.studentId || '';
+
+  return (
+    <section className="content-section submit-section">
+      <div className="page-heading">
+        <div>
+          <div className="eyebrow">STUDENT SUPPORT & INCIDENT REGISTRATION</div>
+          <h1>Tell us what’s happening</h1>
+          <p>Register your concern with detailed campus locations and incident tracking. Every field is securely logged.</p>
         </div>
-      </label>
-      <div className="attachment-box"><label className="attachment-label"><span className="attachment-icon"><FilePlus2 size={17} /></span><span><strong>{attachmentName || 'Add a supporting file'}</strong><small>{attachmentName ? 'File attached' : 'Optional · PNG, JPG, or PDF (up to 5MB)'}</small></span><span className="attachment-browse">{attachmentName ? 'Change' : 'Browse'}</span><input type="file" accept="image/*,.pdf" onChange={(event) => setAttachmentName(event.target.files?.[0]?.name || '')} /></label></div>
-      <div className="form-footer"><span><ShieldCheck size={15} /> Only authorized college staff can view your submission.</span><button className="button-primary" type="submit">Submit complaint <ArrowRight size={16} /></button></div>
-    </form><aside className="form-aside"><div className="aside-note"><div className="aside-note-icon"><Clock3 size={17} /></div><div className="eyebrow">WHAT HAPPENS NEXT</div><h3>Every step, accounted for.</h3><p>Your complaint receives a reference number and is added to a visible timeline as the team responds.</p><div className="mini-timeline"><div className="mini-step mini-step-active"><span><Check size={11} /></span><div><strong>Submitted</strong><small>We’ve received your report</small></div></div><div className="mini-step"><span>2</span><div><strong>Review</strong><small>Routed to the right team</small></div></div><div className="mini-step"><span>3</span><div><strong>Resolution</strong><small>Follow progress in your dashboard</small></div></div></div></div><div className="privacy-note"><ShieldCheck size={16} /><span><strong>Your privacy matters.</strong> Your personal details are only shared with staff handling this case.</span></div></aside></div>
-  </section>;
+        <button type="button" className="button-quiet" onClick={onCancel}>Cancel</button>
+      </div>
+
+      <div className="form-layout">
+        <form className="complaint-form" onSubmit={(e) => onSubmit(e, attachmentName)}>
+
+          {/* SECTION 1: IDENTITY & CAMPUS REGISTRATION */}
+          <div className="form-section-label">
+            <span>01</span>
+            <div>
+              <strong>Student & Campus Location Details</strong>
+              <small>Identity, college, timing and exact location series</small>
+            </div>
+          </div>
+
+          <div className="complaint-fields-series">
+            {/* 1. Default Username (Locked) */}
+            <div className="complaint-field-card c-field-username">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Username (Default)</span>
+                <span className="f-badge"><Lock size={12} /> Default • Uneditable</span>
+              </div>
+              <input
+                name="usernameDisplay"
+                value={defaultUsername}
+                readOnly
+                disabled
+                className="f-input-manual"
+                title="Username is locked to your authenticated login session."
+              />
+              <small style={{ display: 'block', marginTop: 4, fontSize: 11, color: '#6366f1', fontFamily: "'Space Grotesk', monospace" }}>
+                🔒 Locked to current student session — cannot be modified.
+              </small>
+            </div>
+
+            {/* 2. College Register Number */}
+            <div className="complaint-field-card c-field-regno">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Enter your college register.no</span>
+                <span className="f-badge">Roll / Reg No</span>
+              </div>
+              <input
+                name="collegeRegisterNo"
+                defaultValue={defaultRegisterNo}
+                placeholder="Enter your college register / enrollment number"
+                className="f-input-manual"
+                required
+              />
+            </div>
+
+            {/* 3. College Name (Manual unlimited) */}
+            <div className="complaint-field-card c-field-college">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Enter your college name clearly</span>
+                <span className="f-badge">Institution</span>
+              </div>
+              <input
+                name="collegeName"
+                placeholder="Enter full college name (no character limit)"
+                className="f-input-manual"
+                defaultValue="Northfield College of Engineering & Technology"
+                required
+              />
+            </div>
+
+            {/* 4. Campus Name */}
+            <div className="complaint-field-card c-field-campus">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Enter your campus name</span>
+                <span className="f-badge">Campus Zone</span>
+              </div>
+              <input
+                name="campusName"
+                placeholder="e.g. Northfield Main Campus, South Lake Campus, City Extension"
+                className="f-input-manual"
+                defaultValue="Northfield Main Campus"
+                required
+              />
+            </div>
+
+            {/* 5. Date with Calendar */}
+            <div className="complaint-field-card c-field-date">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Date</span>
+                <span className="f-badge"><Calendar size={12} /> Interactive Calendar</span>
+              </div>
+              <input
+                type="date"
+                name="complaintDate"
+                value={complaintDate}
+                onChange={(e) => setComplaintDate(e.target.value)}
+                className="f-input-manual"
+                required
+              />
+              <small style={{ display: 'block', marginTop: 4, fontSize: 11, color: '#047857', fontFamily: "'Lexend', sans-serif" }}>
+                📅 Click field to open the full calendar picker.
+              </small>
+            </div>
+
+            {/* 6. Time (Default Sign-in Timestamp - Non-editable) */}
+            <div className="complaint-field-card c-field-time">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Time</span>
+                <span className="f-badge"><Clock size={12} /> Sign-in Logged • System Default</span>
+              </div>
+              <input
+                name="complaintTime"
+                value={defaultTimeStr}
+                readOnly
+                className="f-input-manual"
+                title="System-captured sign-in time. Uneditable by any user."
+              />
+              <small style={{ display: 'block', marginTop: 4, fontSize: 11, color: '#64748b', fontFamily: "'Space Mono', monospace" }}>
+                ⏱ Captured from active sign-in session. Permanent & non-editable.
+              </small>
+            </div>
+
+            {/* 7. Department */}
+            <div className="complaint-field-card c-field-dept">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Your Department</span>
+                <span className="f-badge">Academic Division</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {user.department && (() => {
+                  const dStyle = getDeptStyle({ name: user.department });
+                  return (
+                    <span
+                      className="dept-badge"
+                      style={{
+                        backgroundColor: dStyle.bg,
+                        color: dStyle.color,
+                        borderColor: dStyle.border,
+                        borderWidth: 1,
+                        borderStyle: 'solid',
+                        fontFamily: dStyle.fontFamily,
+                      }}
+                    >
+                      {dStyle.badge}
+                    </span>
+                  );
+                })()}
+                <input
+                  value={user.department || 'Computer Science & Engineering (CSE)'}
+                  readOnly
+                  className="f-input-manual"
+                  style={{ flex: 1, background: '#fef3c7', color: '#92400e', fontWeight: 700, fontFamily: "'Syne', sans-serif" }}
+                />
+              </div>
+            </div>
+
+            {/* 8. Block Name */}
+            <div className="complaint-field-card c-field-block">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Enter your block name</span>
+                <span className="f-badge"><Building2 size={12} /> Campus Block</span>
+              </div>
+              <input
+                name="blockName"
+                placeholder="e.g. Science & Tech Block, Ramanujan Bhavan, Hostel Block C"
+                className="f-input-manual"
+                required
+              />
+            </div>
+
+            {/* 9. Floor Number in Selected Block */}
+            <div className="complaint-field-card c-field-floor">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Enter the floor number in the selected block</span>
+                <span className="f-badge">Level</span>
+              </div>
+              <input
+                name="floorNumber"
+                placeholder="e.g. Ground Floor, 2nd Floor, 3rd Floor"
+                className="f-input-manual"
+                required
+              />
+            </div>
+
+            {/* 10. Room No in Selected Floor */}
+            <div className="complaint-field-card c-field-room">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Enter your room no in a selected floor</span>
+                <span className="f-badge">Room / Lab</span>
+              </div>
+              <input
+                name="roomNumber"
+                placeholder="e.g. Room 304, Computer Lab 2, Seminar Hall A"
+                className="f-input-manual"
+                required
+              />
+            </div>
+
+            {/* 11. Days Facing Problem */}
+            <div className="complaint-field-card c-field-days">
+              <div className="complaint-field-top">
+                <span className="f-label-title">From the how many days are facing with the problem?</span>
+                <span className="f-badge">Duration</span>
+              </div>
+              <input
+                name="daysFacingProblem"
+                placeholder="e.g. 3 days, since last week, past 24 hours"
+                className="f-input-manual"
+                required
+              />
+            </div>
+
+            {/* 12. How Does Problem Appear? */}
+            <div className="complaint-field-card c-field-appearance">
+              <div className="complaint-field-top">
+                <span className="f-label-title">How does this problem appears?</span>
+                <span className="f-badge">Appearance / Symptoms</span>
+              </div>
+              <textarea
+                name="problemAppearance"
+                rows="3"
+                placeholder="Describe how and when this problem manifests (e.g. sparks flickering from electrical board, water clogging every evening, sudden connection drops during classes)…"
+                className="f-input-manual"
+                required
+              />
+            </div>
+
+            {/* 13. Enter Your Suggestion */}
+            <div className="complaint-field-card c-field-suggestions">
+              <div className="complaint-field-top">
+                <span className="f-label-title">Enter your suggestion?</span>
+                <span className="f-badge">Student Suggestion</span>
+              </div>
+              <textarea
+                name="suggestions"
+                rows="3"
+                placeholder="Provide your ideas or proposed suggestions to fix this concern…"
+                className="f-input-manual"
+              />
+            </div>
+
+            {/* 14. Members Suffered / Presently Suffering */}
+            <div className="complaint-field-card c-field-members">
+              <div className="complaint-field-top">
+                <span className="f-label-title">How many members suffered / presently suffering from this complaint</span>
+                <span className="f-badge"><Users size={12} /> Impact Count</span>
+              </div>
+              <input
+                name="membersAffected"
+                placeholder="e.g. Entire batch (approx 65 students), 4 hostel roommates, only myself"
+                className="f-input-manual"
+                required
+              />
+            </div>
+          </div>
+
+          {/* SECTION 2: EMERGENCY DISPATCH SELECTOR */}
+          <div className="form-section-label form-section-second" style={{ marginTop: 24 }}>
+            <span>02</span>
+            <div>
+              <strong>Emergency Dispatch & Services</strong>
+              <small>Choose the option if there is an emergency complaint</small>
+            </div>
+          </div>
+
+          <div className={`emergency-dispatch-panel ${selectedEmergency ? 'active' : ''}`}>
+            <div className="emerg-header">
+              <div className="emerg-header-title">
+                <ShieldAlert size={20} color="#e11d48" />
+                <span>Choose the option if there is an emergency complaint:</span>
+              </div>
+              {selectedEmergency ? (
+                <span className="emerg-header-badge">
+                  🚨 ACTIVE: {selectedEmergency.toUpperCase()}
+                </span>
+              ) : (
+                <span style={{ fontSize: 11.5, color: '#64748b' }}>
+                  Click one below if urgent dispatch needed
+                </span>
+              )}
+            </div>
+
+            <input type="hidden" name="emergencyType" value={selectedEmergency} />
+
+            <div className="emerg-grid">
+              {/* Option 1: Fire Engine */}
+              <button
+                type="button"
+                className={`emerg-option-btn emerg-option-fire ${selectedEmergency === 'Fire Engine' ? 'selected' : ''}`}
+                onClick={() => setSelectedEmergency((prev) => (prev === 'Fire Engine' ? '' : 'Fire Engine'))}
+              >
+                <div className="emerg-icon-wrap">
+                  <Flame size={22} />
+                </div>
+                <span className="emerg-option-title">Fire Engine</span>
+                <span className="emerg-option-sub">Fire breakout, electrical spark hazard or gas emergency</span>
+              </button>
+
+              {/* Option 2: Ambulance */}
+              <button
+                type="button"
+                className={`emerg-option-btn emerg-option-ambulance ${selectedEmergency === 'Ambulance' ? 'selected' : ''}`}
+                onClick={() => setSelectedEmergency((prev) => (prev === 'Ambulance' ? '' : 'Ambulance'))}
+              >
+                <div className="emerg-icon-wrap">
+                  <HeartPulse size={22} />
+                </div>
+                <span className="emerg-option-title">Ambulance</span>
+                <span className="emerg-option-sub">Critical injury, fainting, cardiac or medical urgency</span>
+              </button>
+
+              {/* Option 3: Third Aid Medical Kit (First Aid Kit) */}
+              <button
+                type="button"
+                className={`emerg-option-btn emerg-option-firstaid ${selectedEmergency === 'First Aid Medical Kit' ? 'selected' : ''}`}
+                onClick={() => setSelectedEmergency((prev) => (prev === 'First Aid Medical Kit' ? '' : 'First Aid Medical Kit'))}
+              >
+                <div className="emerg-icon-wrap">
+                  <Activity size={22} />
+                </div>
+                <span className="emerg-option-title">Third Aid Medical Kit</span>
+                <span className="emerg-option-sub">Campus clinic dispatch, cuts, burns, dressing & first aid</span>
+              </button>
+
+              {/* Option 4: Police */}
+              <button
+                type="button"
+                className={`emerg-option-btn emerg-option-police ${selectedEmergency === 'Police' ? 'selected' : ''}`}
+                onClick={() => setSelectedEmergency((prev) => (prev === 'Police' ? '' : 'Police'))}
+              >
+                <div className="emerg-icon-wrap">
+                  <Siren size={22} />
+                </div>
+                <span className="emerg-option-title">Police</span>
+                <span className="emerg-option-sub">Security threat, trespassing, physical safety & police dispatch</span>
+              </button>
+            </div>
+
+            {selectedEmergency && (
+              <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 700 }}>
+                  ⚠️ Priority will automatically escalate to Critical for immediate team notification.
+                </span>
+                <button
+                  type="button"
+                  className="button-quiet"
+                  style={{ fontSize: 11.5, padding: '4px 10px', height: 'auto' }}
+                  onClick={() => setSelectedEmergency('')}
+                >
+                  Clear Emergency (Standard Case)
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 3: CORE COMPLAINT SUMMARY */}
+          <div className="form-section-label form-section-second" style={{ marginTop: 24 }}>
+            <span>03</span>
+            <div>
+              <strong>Complaint Classification & Summary</strong>
+              <small>Category, title and thorough explanation</small>
+            </div>
+          </div>
+
+          <div className="form-field-grid">
+            <label>Category
+              <select name="categoryId" required defaultValue="">
+                <option value="" disabled>Choose a category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>Priority
+              <select
+                name="priority"
+                value={selectedEmergency ? 'Critical' : undefined}
+                defaultValue="Medium"
+              >
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+                <option>Critical</option>
+              </select>
+            </label>
+          </div>
+
+          <label>Complaint title
+            <input name="title" minLength={3} maxLength={180} placeholder="A clear, short summary" required />
+          </label>
+
+          <label>What happened?
+            <textarea
+              name="description"
+              minLength={10}
+              maxLength={5000}
+              rows={4}
+              placeholder="Share the details that will help us understand the situation…"
+              required
+            />
+            <span className="field-hint">Include when and where it happened, and what you’ve already tried.</span>
+          </label>
+
+          <div className="attachment-box">
+            <label className="attachment-label">
+              <span className="attachment-icon"><FilePlus2 size={17} /></span>
+              <span>
+                <strong>{attachmentName || 'Add a supporting file'}</strong>
+                <small>{attachmentName ? 'File attached' : 'Optional · PNG, JPG, or PDF (up to 5MB)'}</small>
+              </span>
+              <span className="attachment-browse">{attachmentName ? 'Change' : 'Browse'}</span>
+              <input type="file" accept="image/*,.pdf" onChange={(event) => setAttachmentName(event.target.files?.[0]?.name || '')} />
+            </label>
+          </div>
+
+          <div className="form-footer">
+            <span><ShieldCheck size={15} /> Only authorized college staff can view your submission.</span>
+            <button className="button-primary" type="submit">
+              Submit complaint <ArrowRight size={16} />
+            </button>
+          </div>
+        </form>
+
+        <aside className="form-aside">
+          <div className="aside-note">
+            <div className="aside-note-icon"><Clock3 size={17} /></div>
+            <div className="eyebrow">WHAT HAPPENS NEXT</div>
+            <h3>Every step, accounted for.</h3>
+            <p>Your complaint receives a reference number and is added to a visible timeline as the team responds.</p>
+            <div className="mini-timeline">
+              <div className="mini-step mini-step-active">
+                <span><Check size={11} /></span>
+                <div><strong>Submitted</strong><small>We’ve received your report</small></div>
+              </div>
+              <div className="mini-step">
+                <span>2</span>
+                <div><strong>Review</strong><small>Routed to the right team</small></div>
+              </div>
+              <div className="mini-step">
+                <span>3</span>
+                <div><strong>Resolution</strong><small>Follow progress in your dashboard</small></div>
+              </div>
+            </div>
+          </div>
+          <div className="privacy-note">
+            <ShieldCheck size={16} />
+            <span><strong>Your privacy matters.</strong> Your personal details are only shared with staff handling this case.</span>
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
 }
 
 function ComplaintDialog({
@@ -2491,6 +2959,38 @@ function ComplaintDialog({
             <span className={`priority priority-${complaint.priority.toLowerCase()}`}><i />{complaint.priority} priority</span>
           </div>
 
+          {complaint.emergencyType && (
+            <div
+              className="dialog-emergency-banner"
+              style={{
+                background:
+                  complaint.emergencyType === 'Fire Engine' ? '#fef2f2' :
+                  complaint.emergencyType === 'Ambulance' ? '#fff1f2' :
+                  complaint.emergencyType === 'First Aid Medical Kit' ? '#ecfdf5' : '#eff6ff',
+                border: `1.5px solid ${
+                  complaint.emergencyType === 'Fire Engine' ? '#dc2626' :
+                  complaint.emergencyType === 'Ambulance' ? '#e11d48' :
+                  complaint.emergencyType === 'First Aid Medical Kit' ? '#059669' : '#1d4ed8'
+                }`,
+                color:
+                  complaint.emergencyType === 'Fire Engine' ? '#b91c1c' :
+                  complaint.emergencyType === 'Ambulance' ? '#be123c' :
+                  complaint.emergencyType === 'First Aid Medical Kit' ? '#047857' : '#1e40af',
+              }}
+            >
+              {complaint.emergencyType === 'Fire Engine' && <Flame size={20} />}
+              {complaint.emergencyType === 'Ambulance' && <HeartPulse size={20} />}
+              {complaint.emergencyType === 'First Aid Medical Kit' && <Activity size={20} />}
+              {complaint.emergencyType === 'Police' && <Siren size={20} />}
+              <div>
+                <strong>EMERGENCY DISPATCH: {complaint.emergencyType.toUpperCase()}</strong>
+                <div style={{ fontSize: 11.5, opacity: 0.9 }}>
+                  Emergency services alerted during incident submission.
+                </div>
+              </div>
+            </div>
+          )}
+
           {complaint.isDeleted && (
             <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', color: '#9f1239', padding: '12px 14px', borderRadius: '8px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0' }}>
               <Archive size={18} style={{ flexShrink: 0 }} />
@@ -2501,6 +3001,93 @@ function ComplaintDialog({
           )}
 
           <p className="dialog-description">{complaint.description}</p>
+
+          {/* Location & Academic Details Card */}
+          {(complaint.collegeName || complaint.campusName || complaint.blockName || complaint.floorNumber || complaint.roomNumber || complaint.daysFacingProblem || complaint.problemAppearance || complaint.suggestions || complaint.membersAffected || complaint.collegeRegisterNo) && (
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, margin: '14px 0' }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#475569', letterSpacing: '0.4px', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Building2 size={14} /> Comprehensive Location & Incident Details
+              </div>
+              <div className="dialog-location-grid">
+                {complaint.collegeName && (
+                  <div className="dialog-location-cell" style={{ borderLeft: '3px solid #0284c7' }}>
+                    <small style={{ color: '#0369a1', fontFamily: "'Outfit', sans-serif" }}>College Name</small>
+                    <strong style={{ fontFamily: "'Outfit', sans-serif" }}>{complaint.collegeName}</strong>
+                  </div>
+                )}
+                {complaint.campusName && (
+                  <div className="dialog-location-cell" style={{ borderLeft: '3px solid #0d9488' }}>
+                    <small style={{ color: '#0f766e', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Campus Name</small>
+                    <strong style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{complaint.campusName}</strong>
+                  </div>
+                )}
+                {(complaint.complaintDate || complaint.complaintTime) && (
+                  <div className="dialog-location-cell" style={{ borderLeft: '3px solid #059669' }}>
+                    <small style={{ color: '#047857', fontFamily: "'Lexend', sans-serif" }}>Date & Time</small>
+                    <strong style={{ fontFamily: "'Space Mono', monospace" }}>
+                      {complaint.complaintDate || 'Recorded'} {complaint.complaintTime ? `• ${complaint.complaintTime}` : ''}
+                    </strong>
+                  </div>
+                )}
+                {complaint.blockName && (
+                  <div className="dialog-location-cell" style={{ borderLeft: '3px solid #ea580c' }}>
+                    <small style={{ color: '#c2410c', fontFamily: "'Epilogue', sans-serif" }}>Block Name</small>
+                    <strong style={{ fontFamily: "'Epilogue', sans-serif" }}>{complaint.blockName}</strong>
+                  </div>
+                )}
+                {complaint.floorNumber && (
+                  <div className="dialog-location-cell" style={{ borderLeft: '3px solid #0891b2' }}>
+                    <small style={{ color: '#0e7490', fontFamily: "'DM Sans', sans-serif" }}>Floor Number</small>
+                    <strong style={{ fontFamily: "'DM Sans', sans-serif" }}>{complaint.floorNumber}</strong>
+                  </div>
+                )}
+                {complaint.roomNumber && (
+                  <div className="dialog-location-cell" style={{ borderLeft: '3px solid #e11d48' }}>
+                    <small style={{ color: '#be123c', fontFamily: "'Fraunces', serif" }}>Room Number</small>
+                    <strong style={{ fontFamily: "'Fraunces', serif" }}>{complaint.roomNumber}</strong>
+                  </div>
+                )}
+                {complaint.daysFacingProblem && (
+                  <div className="dialog-location-cell" style={{ borderLeft: '3px solid #9333ea' }}>
+                    <small style={{ color: '#7e22ce', fontFamily: "'Lexend', sans-serif" }}>Days Facing Problem</small>
+                    <strong style={{ fontFamily: "'Lexend', sans-serif" }}>{complaint.daysFacingProblem}</strong>
+                  </div>
+                )}
+                {complaint.membersAffected && (
+                  <div className="dialog-location-cell" style={{ borderLeft: '3px solid #2563eb' }}>
+                    <small style={{ color: '#1d4ed8', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Members Affected</small>
+                    <strong style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{complaint.membersAffected}</strong>
+                  </div>
+                )}
+                {complaint.collegeRegisterNo && (
+                  <div className="dialog-location-cell" style={{ borderLeft: '3px solid #7c3aed' }}>
+                    <small style={{ color: '#6b21a8', fontFamily: "'JetBrains Mono', monospace" }}>College Register No</small>
+                    <strong style={{ fontFamily: "'JetBrains Mono', monospace" }}>{complaint.collegeRegisterNo}</strong>
+                  </div>
+                )}
+              </div>
+              {complaint.problemAppearance && (
+                <div style={{ marginTop: 10, padding: 10, background: '#fdf4ff', border: '1px solid #f5d0fe', borderRadius: 8 }}>
+                  <small style={{ display: 'block', color: '#a21caf', fontWeight: 800, textTransform: 'uppercase', fontSize: 10.5, fontFamily: "'Manrope', sans-serif" }}>
+                    How Does Problem Appear
+                  </small>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#701a75', fontFamily: "'Manrope', sans-serif" }}>
+                    {complaint.problemAppearance}
+                  </p>
+                </div>
+              )}
+              {complaint.suggestions && (
+                <div style={{ marginTop: 8, padding: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>
+                  <small style={{ display: 'block', color: '#15803d', fontWeight: 800, textTransform: 'uppercase', fontSize: 10.5, fontFamily: "'Outfit', sans-serif" }}>
+                    Student Suggestion
+                  </small>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#14532d', fontFamily: "'Outfit', sans-serif" }}>
+                    {complaint.suggestions}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
           <div className="detail-facts">
             <div>
               <small>SUBMITTED BY</small>

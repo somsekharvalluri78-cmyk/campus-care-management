@@ -1331,4 +1331,654 @@ button:disabled { opacity: .65; cursor: wait; }
   padding-top: 20px;
   border-top: 1px solid #f1f5f9;
   flex-wrap: wrap;
-}
+}
+
+/* =========================================================
+   DETAILED COMPLAINT FORM ENHANCEMENTS & UNIQUE FIELD STYLES
+   ========================================================= */
+
+.complaint-fields-series {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.complaint-field-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  padding: 14px 16px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.complaint-field-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.08);
+}
+
+.complaint-field-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.f-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.f-label-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.f-input-manual {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  outline: none;
+  transition: all 0.18s ease;
+  background: #fbfcfe;
+}
+
+/* 1. Default Username (Locked) */
+.c-field-username {
+  border-color: #c7d2fe;
+  background: linear-gradient(180deg, #f5f7ff 0%, #ffffff 100%);
+}
+.c-field-username .f-badge {
+  background: #e0e7ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+  font-family: 'Space Grotesk', monospace;
+}
+.c-field-username .f-label-title {
+  color: #312e81;
+  font-family: 'Space Grotesk', sans-serif;
+}
+.c-field-username .f-input-manual {
+  border: 1.5px solid #c7d2fe;
+  font-family: 'Space Grotesk', monospace;
+  color: #3730a3;
+  background: #f8faff;
+  cursor: not-allowed;
+  font-weight: 700;
+}
+
+/* 2. College Register Number */
+.c-field-regno {
+  border-color: #ddd6fe;
+}
+.c-field-regno .f-badge {
+  background: #ede9fe;
+  color: #6b21a8;
+  border: 1px solid #ddd6fe;
+  font-family: 'JetBrains Mono', monospace;
+}
+.c-field-regno .f-label-title {
+  color: #581c87;
+  font-family: 'JetBrains Mono', monospace;
+}
+.c-field-regno .f-input-manual {
+  border: 1.5px solid #ddd6fe;
+  font-family: 'JetBrains Mono', monospace;
+  color: #581c87;
+}
+.c-field-regno .f-input-manual:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  background: #ffffff;
+}
+
+/* 3. College Name (Manual unlimited) */
+.c-field-college {
+  border-color: #bae6fd;
+}
+.c-field-college .f-badge {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  font-family: 'Outfit', sans-serif;
+}
+.c-field-college .f-label-title {
+  color: #075985;
+  font-family: 'Outfit', sans-serif;
+}
+.c-field-college .f-input-manual {
+  border: 1.5px solid #bae6fd;
+  font-family: 'Outfit', sans-serif;
+  color: #0c4a6e;
+}
+.c-field-college .f-input-manual:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+  background: #ffffff;
+}
+
+/* 4. Campus Name */
+.c-field-campus {
+  border-color: #99f6e4;
+}
+.c-field-campus .f-badge {
+  background: #ccfbf1;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.c-field-campus .f-label-title {
+  color: #115e59;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.c-field-campus .f-input-manual {
+  border: 1.5px solid #99f6e4;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: #134e4a;
+}
+.c-field-campus .f-input-manual:focus {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+  background: #ffffff;
+}
+
+/* 5. Date with Calendar */
+.c-field-date {
+  border-color: #a7f3d0;
+}
+.c-field-date .f-badge {
+  background: #d1fae5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  font-family: 'Lexend', sans-serif;
+}
+.c-field-date .f-label-title {
+  color: #065f46;
+  font-family: 'Lexend', sans-serif;
+}
+.c-field-date .f-input-manual {
+  border: 1.5px solid #a7f3d0;
+  font-family: 'Lexend', sans-serif;
+  color: #064e3b;
+  cursor: pointer;
+}
+.c-field-date .f-input-manual:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+  background: #ffffff;
+}
+
+/* 6. Time (System Logged Sign-in default) */
+.c-field-time {
+  border-color: #cbd5e1;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+.c-field-time .f-badge {
+  background: #e2e8f0;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  font-family: 'Space Grotesk', monospace;
+}
+.c-field-time .f-label-title {
+  color: #1e293b;
+  font-family: 'Space Grotesk', monospace;
+}
+.c-field-time .f-input-manual {
+  border: 1.5px solid #cbd5e1;
+  font-family: 'JetBrains Mono', monospace;
+  color: #334155;
+  background: #f1f5f9;
+  cursor: not-allowed;
+  font-weight: 700;
+}
+
+/* 7. Department */
+.c-field-dept {
+  border-color: #fde68a;
+}
+.c-field-dept .f-badge {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-family: 'Syne', sans-serif;
+}
+.c-field-dept .f-label-title {
+  color: #92400e;
+  font-family: 'Syne', sans-serif;
+}
+
+/* 8. Block Name */
+.c-field-block {
+  border-color: #fed7aa;
+}
+.c-field-block .f-badge {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  font-family: 'Epilogue', sans-serif;
+}
+.c-field-block .f-label-title {
+  color: #9a3412;
+  font-family: 'Epilogue', sans-serif;
+}
+.c-field-block .f-input-manual {
+  border: 1.5px solid #fed7aa;
+  font-family: 'Epilogue', sans-serif;
+  color: #7c2d12;
+}
+.c-field-block .f-input-manual:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
+  background: #ffffff;
+}
+
+/* 9. Floor Number */
+.c-field-floor {
+  border-color: #a5f3fc;
+}
+.c-field-floor .f-badge {
+  background: #cffafe;
+  color: #0e7490;
+  border: 1px solid #a5f3fc;
+  font-family: 'DM Sans', sans-serif;
+}
+.c-field-floor .f-label-title {
+  color: #155e75;
+  font-family: 'DM Sans', sans-serif;
+}
+.c-field-floor .f-input-manual {
+  border: 1.5px solid #a5f3fc;
+  font-family: 'DM Sans', sans-serif;
+  color: #164e63;
+}
+.c-field-floor .f-input-manual:focus {
+  border-color: #0891b2;
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.15);
+  background: #ffffff;
+}
+
+/* 10. Room Number */
+.c-field-room {
+  border-color: #fecdd3;
+}
+.c-field-room .f-badge {
+  background: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+  font-family: 'Fraunces', serif;
+}
+.c-field-room .f-label-title {
+  color: #9f1239;
+  font-family: 'Fraunces', serif;
+}
+.c-field-room .f-input-manual {
+  border: 1.5px solid #fecdd3;
+  font-family: 'Fraunces', serif;
+  color: #881337;
+}
+.c-field-room .f-input-manual:focus {
+  border-color: #e11d48;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15);
+  background: #ffffff;
+}
+
+/* 11. Days Facing Problem */
+.c-field-days {
+  border-color: #e9d5ff;
+}
+.c-field-days .f-badge {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+  font-family: 'Lexend', sans-serif;
+}
+.c-field-days .f-label-title {
+  color: #6b21a8;
+  font-family: 'Lexend', sans-serif;
+}
+.c-field-days .f-input-manual {
+  border: 1.5px solid #e9d5ff;
+  font-family: 'Lexend', sans-serif;
+  color: #581c87;
+}
+.c-field-days .f-input-manual:focus {
+  border-color: #9333ea;
+  box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.15);
+  background: #ffffff;
+}
+
+/* 12. Problem Appearance */
+.c-field-appearance {
+  border-color: #f5d0fe;
+}
+.c-field-appearance .f-badge {
+  background: #fae8ff;
+  color: #a21caf;
+  border: 1px solid #f5d0fe;
+  font-family: 'Manrope', sans-serif;
+}
+.c-field-appearance .f-label-title {
+  color: #86198f;
+  font-family: 'Manrope', sans-serif;
+}
+.c-field-appearance .f-input-manual {
+  border: 1.5px solid #f5d0fe;
+  font-family: 'Manrope', sans-serif;
+  color: #701a75;
+}
+.c-field-appearance .f-input-manual:focus {
+  border-color: #c026d3;
+  box-shadow: 0 0 0 3px rgba(192, 38, 211, 0.15);
+  background: #ffffff;
+}
+
+/* 13. Suggestions */
+.c-field-suggestions {
+  border-color: #bbf7d0;
+}
+.c-field-suggestions .f-badge {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  font-family: 'Outfit', sans-serif;
+}
+.c-field-suggestions .f-label-title {
+  color: #166534;
+  font-family: 'Outfit', sans-serif;
+}
+.c-field-suggestions .f-input-manual {
+  border: 1.5px solid #bbf7d0;
+  font-family: 'Outfit', sans-serif;
+  color: #14532d;
+}
+.c-field-suggestions .f-input-manual:focus {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+  background: #ffffff;
+}
+
+/* 14. Members Affected */
+.c-field-members {
+  border-color: #bfdbfe;
+}
+.c-field-members .f-badge {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.c-field-members .f-label-title {
+  color: #1e40af;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.c-field-members .f-input-manual {
+  border: 1.5px solid #bfdbfe;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: #1e3a8a;
+}
+.c-field-members .f-input-manual:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  background: #ffffff;
+}
+
+/* =========================================================
+   EMERGENCY COMPLAINT DISPATCHER (4 Emergency Choices)
+   ========================================================= */
+
+.emergency-dispatch-panel {
+  background: linear-gradient(135deg, #fff1f2 0%, #fffbeb 50%, #f0fdf4 100%);
+  border: 2px dashed #f43f5e;
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin: 10px 0 16px;
+  box-shadow: 0 10px 25px -5px rgba(244, 63, 94, 0.1);
+  transition: all 0.25s ease;
+}
+
+.emergency-dispatch-panel.active {
+  border-style: solid;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18), 0 14px 28px -4px rgba(220, 38, 38, 0.2);
+}
+
+.emerg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.emerg-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #9f1239;
+}
+
+.emerg-header-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: #e11d48;
+  color: #ffffff;
+  font-family: 'Space Grotesk', monospace;
+  letter-spacing: 0.5px;
+  animation: emergPulseBadge 1.8s infinite;
+}
+
+@keyframes emergPulseBadge {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.9; }
+}
+
+.emerg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.emerg-option-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 14px 12px;
+  border-radius: 10px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.emerg-option-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.emerg-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.emerg-option-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.emerg-option-sub {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+/* 1. Fire Engine */
+.emerg-option-fire {
+  border-color: #fca5a5;
+  background: #fffafa;
+}
+.emerg-option-fire .emerg-icon-wrap {
+  background: #fee2e2;
+  color: #dc2626;
+}
+.emerg-option-fire .emerg-option-title {
+  color: #b91c1c;
+  font-family: 'Space Grotesk', sans-serif;
+}
+.emerg-option-fire.selected {
+  border-color: #dc2626;
+  background: #fef2f2;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25);
+  animation: emergFireGlow 1.8s infinite;
+}
+@keyframes emergFireGlow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.3); }
+  50% { box-shadow: 0 0 0 7px rgba(220, 38, 38, 0.15); }
+}
+
+/* 2. Ambulance */
+.emerg-option-ambulance {
+  border-color: #fecdd3;
+  background: #fffbfa;
+}
+.emerg-option-ambulance .emerg-icon-wrap {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+.emerg-option-ambulance .emerg-option-title {
+  color: #be123c;
+  font-family: 'Outfit', sans-serif;
+}
+.emerg-option-ambulance.selected {
+  border-color: #e11d48;
+  background: #fff1f2;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.25);
+  animation: emergAmbGlow 1.8s infinite;
+}
+@keyframes emergAmbGlow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.3); }
+  50% { box-shadow: 0 0 0 7px rgba(225, 29, 72, 0.15); }
+}
+
+/* 3. First Aid Medical Kit */
+.emerg-option-firstaid {
+  border-color: #a7f3d0;
+  background: #fafffc;
+}
+.emerg-option-firstaid .emerg-icon-wrap {
+  background: #d1fae5;
+  color: #059669;
+}
+.emerg-option-firstaid .emerg-option-title {
+  color: #047857;
+  font-family: 'Lexend', sans-serif;
+}
+.emerg-option-firstaid.selected {
+  border-color: #059669;
+  background: #ecfdf5;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.25);
+  animation: emergAidGlow 1.8s infinite;
+}
+@keyframes emergAidGlow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.3); }
+  50% { box-shadow: 0 0 0 7px rgba(5, 150, 105, 0.15); }
+}
+
+/* 4. Police */
+.emerg-option-police {
+  border-color: #93c5fd;
+  background: #fbfdff;
+}
+.emerg-option-police .emerg-icon-wrap {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.emerg-option-police .emerg-option-title {
+  color: #1e40af;
+  font-family: 'Syne', sans-serif;
+}
+.emerg-option-police.selected {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.25);
+  animation: emergPolGlow 1.8s infinite;
+}
+@keyframes emergPolGlow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.3); }
+  50% { box-shadow: 0 0 0 7px rgba(29, 78, 216, 0.15); }
+}
+
+/* Emergency Banner in Dialog */
+.dialog-emergency-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin: 12px 0 16px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  animation: emergBannerPulse 2.5s infinite;
+}
+@keyframes emergBannerPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.01); }
+}
+
+/* Dialog Extra Details Cards */
+.dialog-location-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+.dialog-location-cell {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.dialog-location-cell small {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 2px;
+}
+.dialog-location-cell strong {
+  display: block;
+  font-size: 13.5px;
+  color: #0f172a;
+}
+
