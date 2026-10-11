@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   department_id INTEGER REFERENCES departments(id),
   phone VARCHAR(30),
   year INTEGER,
+  semester INTEGER DEFAULT 1,
   section VARCHAR(20),
   designation VARCHAR(100),
   status VARCHAR(20) NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),

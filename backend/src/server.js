@@ -67,7 +67,7 @@ function allow(...roles) {
 }
 
 const userSelect = `SELECT u.id, u.login_id AS "loginId", u.email, u.full_name AS "fullName", u.role,
-  u.department_id AS "departmentId", d.name AS department, u.year, u.section, u.designation
+  u.department_id AS "departmentId", d.name AS department, u.year, u.semester, u.section, u.designation
   FROM users u LEFT JOIN departments d ON d.id = u.department_id`;
 
 app.get('/api/health', asyncRoute(async (_request, response) => {
@@ -93,11 +93,11 @@ app.post('/api/auth/register', authLimiter, asyncRoute(async (request, response)
   const passwordHash = await bcrypt.hash(student.password, 12);
   try {
     const { rows } = await pool.query(
-      `INSERT INTO users (login_id, email, password_hash, full_name, role, department_id, year, section, phone)
-       SELECT $1, $2, $3, $4, 'student', d.id, $6, $7, NULLIF($8, '')
+      `INSERT INTO users (login_id, email, password_hash, full_name, role, department_id, year, semester, section, phone)
+       SELECT $1, $2, $3, $4, 'student', d.id, $6, $7, $8, NULLIF($9, '')
        FROM departments d WHERE d.id = $5 AND d.status = 'Active'
        RETURNING id`,
-      [student.studentId, student.email, passwordHash, student.fullName, student.departmentId, student.year, student.section, student.phone],
+      [student.studentId, student.email, passwordHash, student.fullName, student.departmentId, student.year, student.semester || 1, student.section, student.phone],
     );
     if (!rows[0]) return response.status(400).json({ error: 'Choose an active department.' });
     const { rows: profileRows } = await pool.query(`${userSelect} WHERE u.id = $1`, [rows[0].id]);

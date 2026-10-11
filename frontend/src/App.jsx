@@ -1036,9 +1036,18 @@ const YEAR_DETAILS = {
   6: { badge: 'YEAR 6', bg: '#fff1f2', color: '#e11d48', border: '#fecdd3', title: '6th Year', sub: 'Doctoral Residency • Hospital Internship' },
 };
 
+function getYearSuffix(y) {
+  if (y === 1) return '1st';
+  if (y === 2) return '2nd';
+  if (y === 3) return '3rd';
+  return `${y}th`;
+}
+
 function YearSelect({
   value,
-  onChange,
+  semester = 1,
+  onChangeYear,
+  onChangeSemester,
   department,
   disabled = false,
 }) {
@@ -1047,6 +1056,22 @@ function YearSelect({
 
   const yearConfig = useMemo(() => getDepartmentYearConfig(department), [department]);
   const hasDepartment = Boolean(department);
+
+  const selectedYear = Number(value) || null;
+  const selectedSemester = Number(semester) || 1;
+  const selectedDetail = selectedYear ? YEAR_DETAILS[selectedYear] : null;
+
+  // Track which year is expanded in the dropdown accordion.
+  // Default to the selected year or the first year of the course.
+  const [expandedYear, setExpandedYear] = useState(() => selectedYear || (yearConfig.years[0] ?? 1));
+
+  useEffect(() => {
+    if (selectedYear) {
+      setExpandedYear(selectedYear);
+    } else if (yearConfig.years.length > 0) {
+      setExpandedYear(yearConfig.years[0]);
+    }
+  }, [selectedYear, yearConfig]);
 
   useEffect(() => {
     function handleOutsideClick(e) {
@@ -1060,13 +1085,17 @@ function YearSelect({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [isOpen]);
 
-  const selectedYear = Number(value);
-  const selectedDetail = YEAR_DETAILS[selectedYear];
-
-  function handleSelect(y) {
-    onChange(y);
+  function handleSelectSemester(y, s) {
+    if (onChangeYear) onChangeYear(y);
+    if (onChangeSemester) onChangeSemester(s);
     setIsOpen(false);
   }
+
+  function handleToggleYearAccordion(y) {
+    setExpandedYear((prev) => (prev === y ? null : y));
+  }
+
+  const selectedCumulativeSem = selectedYear ? (selectedYear - 1) * 2 + selectedSemester : null;
 
   return (
     <div
@@ -1092,17 +1121,20 @@ function YearSelect({
                   borderColor: selectedDetail.border,
                   borderWidth: 1,
                   borderStyle: 'solid',
+                  fontFamily: "'Space Grotesk', monospace",
+                  fontWeight: 800,
+                  letterSpacing: '0.4px',
                 }}
               >
-                {selectedDetail.badge}
+                {selectedDetail.badge} • SEM {selectedSemester}
               </span>
-              <span className="year-selected-name">
-                {selectedDetail.title}
+              <span className="year-selected-name" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                {selectedDetail.title} • {selectedSemester === 1 ? '1st Sem' : '2nd Sem'} <small style={{ color: '#64748b', fontWeight: 500 }}>(Sem {selectedCumulativeSem})</small>
               </span>
             </>
           ) : (
             <span className="year-placeholder">
-              {!hasDepartment ? 'Select department first' : `Choose year (${yearConfig.totalYears} years course)`}
+              {!hasDepartment ? 'Select department first' : `Choose year & semester (${yearConfig.totalYears} years)`}
             </span>
           )}
         </div>
@@ -1119,11 +1151,16 @@ function YearSelect({
       {isOpen && (
         <div className="year-dropdown-panel" role="listbox">
           <div className="year-panel-header">
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>
-              Academic Year Selection
-            </span>
-            <span className="year-program-tag">
-              {yearConfig.totalYears} Years Duration
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', fontFamily: "'Outfit', sans-serif" }}>
+                Academic Year & Semester Selection
+              </span>
+              <span style={{ fontSize: 9.5, color: '#64748b' }}>
+                Each year splits into 1st & 2nd semester
+              </span>
+            </div>
+            <span className="year-program-tag" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              {yearConfig.totalYears} Years • {yearConfig.totalYears * 2} Sems
             </span>
           </div>
 
@@ -1134,41 +1171,168 @@ function YearSelect({
                 bg: '#f1f5f9',
                 color: '#475569',
                 border: '#cbd5e1',
-                title: `${y}th Year`,
+                title: `${y}${getYearSuffix(y)} Year`,
                 sub: `Academic Year ${y}`,
               };
-              const isSelected = selectedYear === y;
+              const isExpanded = expandedYear === y;
+              const isThisYearSelected = selectedYear === y;
+              const semA = (y - 1) * 2 + 1;
+              const semB = (y - 1) * 2 + 2;
+              const isSem1Selected = isThisYearSelected && selectedSemester === 1;
+              const isSem2Selected = isThisYearSelected && selectedSemester === 2;
+
               return (
-                <button
+                <div
                   key={y}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  className={`year-option ${isSelected ? 'selected' : ''}`}
-                  onClick={() => handleSelect(y)}
+                  className={`year-accordion-item ${isExpanded ? 'active' : ''}`}
+                  style={{
+                    borderColor: isThisYearSelected ? detail.border : undefined,
+                  }}
                 >
-                  <span
-                    className="year-badge"
-                    style={{
-                      backgroundColor: detail.bg,
-                      color: detail.color,
-                      borderColor: detail.border,
-                      borderWidth: 1,
-                      borderStyle: 'solid',
-                    }}
+                  <button
+                    type="button"
+                    className="year-accordion-trigger"
+                    onClick={() => handleToggleYearAccordion(y)}
+                    aria-expanded={isExpanded}
                   >
-                    {detail.badge}
-                  </span>
-                  <div className="year-option-info">
-                    <span className="year-option-title" style={{ color: isSelected ? detail.color : undefined }}>
-                      {detail.title}
+                    <span
+                      className="year-badge"
+                      style={{
+                        backgroundColor: detail.bg,
+                        color: detail.color,
+                        borderColor: detail.border,
+                        borderWidth: 1,
+                        borderStyle: 'solid',
+                        fontFamily: "'Space Grotesk', monospace",
+                        fontWeight: 800,
+                      }}
+                    >
+                      {detail.badge}
                     </span>
-                    <span className="year-option-sub">
-                      {detail.sub}
-                    </span>
-                  </div>
-                  {isSelected && <Check size={14} style={{ color: detail.color, marginLeft: 'auto' }} />}
-                </button>
+                    <div className="year-option-info">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span
+                          className="year-option-title"
+                          style={{ color: isThisYearSelected ? detail.color : '#0f172a' }}
+                        >
+                          {detail.title}
+                        </span>
+                        {isThisYearSelected && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: detail.color,
+                              background: detail.bg,
+                              border: `1px solid ${detail.border}`,
+                              padding: '1px 6px',
+                              borderRadius: 4,
+                            }}
+                          >
+                            {selectedSemester === 1 ? '1st Sem' : '2nd Sem'} (Sem {selectedCumulativeSem})
+                          </span>
+                        )}
+                      </div>
+                      <span className="year-option-sub">
+                        {detail.sub}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      size={14}
+                      style={{
+                        marginLeft: 'auto',
+                        color: '#64748b',
+                        transform: isExpanded ? 'rotate(180deg)' : 'none',
+                        transition: 'transform 0.15s ease',
+                      }}
+                    />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="year-semesters-drawer">
+                      <div style={{ padding: '2px 4px 4px', fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+                        Choose semester for {detail.title}:
+                      </div>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={isSem1Selected}
+                        className={`sem-split-btn ${isSem1Selected ? 'selected' : ''}`}
+                        onClick={() => handleSelectSemester(y, 1)}
+                        style={{
+                          borderColor: isSem1Selected ? detail.color : undefined,
+                          backgroundColor: isSem1Selected ? detail.bg : undefined,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span
+                            className="sem-pill-badge"
+                            style={{
+                              backgroundColor: detail.bg,
+                              color: detail.color,
+                              border: `1px solid ${detail.border}`,
+                              fontFamily: "'Space Grotesk', monospace",
+                            }}
+                          >
+                            SEM {semA}
+                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: isSem1Selected ? detail.color : '#1e293b' }}>
+                              {detail.title} • 1st Semester
+                            </span>
+                            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500 }}>
+                              Odd Semester (Autumn Session)
+                            </span>
+                          </div>
+                        </div>
+                        {isSem1Selected ? (
+                          <Check size={14} style={{ color: detail.color }} />
+                        ) : (
+                          <ArrowRight size={13} style={{ color: '#94a3b8' }} />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={isSem2Selected}
+                        className={`sem-split-btn ${isSem2Selected ? 'selected' : ''}`}
+                        onClick={() => handleSelectSemester(y, 2)}
+                        style={{
+                          borderColor: isSem2Selected ? detail.color : undefined,
+                          backgroundColor: isSem2Selected ? detail.bg : undefined,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span
+                            className="sem-pill-badge"
+                            style={{
+                              backgroundColor: detail.bg,
+                              color: detail.color,
+                              border: `1px solid ${detail.border}`,
+                              fontFamily: "'Space Grotesk', monospace",
+                            }}
+                          >
+                            SEM {semB}
+                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: isSem2Selected ? detail.color : '#1e293b' }}>
+                              {detail.title} • 2nd Semester
+                            </span>
+                            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500 }}>
+                              Even Semester (Spring Session)
+                            </span>
+                          </div>
+                        </div>
+                        {isSem2Selected ? (
+                          <Check size={14} style={{ color: detail.color }} />
+                        ) : (
+                          <ArrowRight size={13} style={{ color: '#94a3b8' }} />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1185,6 +1349,7 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
+  const [selectedSemester, setSelectedSemester] = useState(1);
   const [formError, setFormError] = useState('');
 
   const selectedDept = useMemo(() => {
@@ -1196,9 +1361,11 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
       const config = getDepartmentYearConfig(selectedDept);
       if (selectedYear && !config.years.includes(Number(selectedYear))) {
         setSelectedYear('');
+        setSelectedSemester(1);
       }
     } else {
       setSelectedYear('');
+      setSelectedSemester(1);
     }
   }, [selectedDept]);
 
@@ -1225,6 +1392,7 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
     const values = new FormData(event.currentTarget);
     const deptId = selectedDepartmentId || values.get('departmentId');
     const yr = selectedYear || values.get('year');
+    const sem = selectedSemester || values.get('semester') || 1;
     if (!deptId) {
       setFormError('Please choose your college department.');
       return;
@@ -1240,7 +1408,7 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
     setFormError('');
     onRegister({
       studentId: values.get('studentId'), fullName: values.get('fullName'), email: values.get('email'),
-      departmentId: Number(deptId), year: Number(yr),
+      departmentId: Number(deptId), year: Number(yr), semester: Number(sem),
       section: values.get('section'), phone: values.get('phone'), password: values.get('password'),
     });
   }
@@ -1267,14 +1435,38 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
             />
             <input type="hidden" name="departmentId" value={selectedDepartmentId || ''} required />
           </label>
-          <label style={{ position: 'relative' }}>Year
+          <label style={{ position: 'relative' }}>Year & Semester
             <YearSelect
               value={selectedYear}
-              onChange={setSelectedYear}
+              semester={selectedSemester}
+              onChangeYear={setSelectedYear}
+              onChangeSemester={setSelectedSemester}
               department={selectedDept}
               disabled={!selectedDept}
             />
             <input type="hidden" name="year" value={selectedYear || ''} required />
+            <input type="hidden" name="semester" value={selectedSemester || 1} required />
+            {selectedYear && (
+              <div className="sem-switcher-row">
+                <span className="sem-switcher-label">SEMESTER:</span>
+                <button
+                  type="button"
+                  className={`sem-toggle-btn ${selectedSemester === 1 ? 'active' : ''}`}
+                  onClick={() => setSelectedSemester(1)}
+                  title="Switch to 1st Semester"
+                >
+                  <span>✦</span> {getYearSuffix(Number(selectedYear))} Year 1st Sem
+                </button>
+                <button
+                  type="button"
+                  className={`sem-toggle-btn ${selectedSemester === 2 ? 'active' : ''}`}
+                  onClick={() => setSelectedSemester(2)}
+                  title="Switch to 2nd Semester"
+                >
+                  <span>✦</span> {getYearSuffix(Number(selectedYear))} Year 2nd Sem
+                </button>
+              </div>
+            )}
           </label>
         </div>
         {departmentError && <div className="department-error" role="alert"><span>{departmentError}</span><button type="button" className="department-retry" onClick={loadDepartments} disabled={departmentsLoading}>{departmentsLoading ? 'Retrying…' : 'Retry'}</button></div>}
@@ -1285,7 +1477,7 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
         {(formError || error) && <div className="login-error" role="alert">{formError || error}</div>}
         <button className="button-primary login-submit" disabled={pending || departments.length === 0}>{pending ? 'Creating account…' : 'Create account'}<ArrowRight size={17} /></button>
       </form>}
-      <div className="auth-switch">{mode === 'login' ? <>New to Campus Care? <button type="button" onClick={() => { setMode('register'); setFormError(''); setSelectedDepartmentId(''); setSelectedYear(''); }}>Create a student account</button></> : <>Already registered? <button type="button" onClick={() => { setMode('login'); setFormError(''); setSelectedDepartmentId(''); setSelectedYear(''); }}>Sign in instead</button></>}</div>
+      <div className="auth-switch">{mode === 'login' ? <>New to Campus Care? <button type="button" onClick={() => { setMode('register'); setFormError(''); setSelectedDepartmentId(''); setSelectedYear(''); setSelectedSemester(1); }}>Create a student account</button></> : <>Already registered? <button type="button" onClick={() => { setMode('login'); setFormError(''); setSelectedDepartmentId(''); setSelectedYear(''); setSelectedSemester(1); }}>Sign in instead</button></>}</div>
       {mode === 'login' && import.meta.env.DEV && <><div className="demo-divider"><span /> QUICK DEMO ACCESS <span /></div><div className="demo-accounts">{DEMO_ACCOUNTS.map(({ label, identifier: demoId, icon: Icon }) => <button key={label} onClick={() => onDemo(demoId)} className="demo-account"><Icon size={17} /><span><strong>{label}</strong><small>{demoId}</small></span><ArrowUpRight size={14} className="demo-arrow" /></button>)}</div></>}
       <div className="login-security"><ShieldCheck size={15} /> Your information is only visible to authorized staff.</div>
     </div><div className="login-form-footer">© 2026 Northfield College <span>•</span> Student support, made simple</div></section>

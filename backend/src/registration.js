@@ -7,6 +7,7 @@ export const studentRegistrationSchema = z.object({
   password: z.string().min(10).max(128).regex(/[a-z]/, 'Password must include a lowercase letter.').regex(/[A-Z]/, 'Password must include an uppercase letter.').regex(/[0-9]/, 'Password must include a number.'),
   departmentId: z.coerce.number().int().positive(),
   year: z.coerce.number().int().min(1).max(8),
+  semester: z.coerce.number().int().min(1).max(2).optional().default(1),
   section: z.string().trim().min(1).max(20),
   phone: z.string().trim().max(30).optional().default(''),
 });
