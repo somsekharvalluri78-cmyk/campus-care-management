@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, BookOpen, Check, ChevronDown,
   CircleHelp, ClipboardList, Clock3, Download, FilePlus2, Filter, LayoutDashboard, LogOut, Menu,
@@ -315,11 +315,598 @@ function App() {
   );
 }
 
+const SHORTCUT_MAP = {
+  // Computer & IT
+  cse: ['computer science & engineering', 'computer science and engineering', 'b.tech cse', 'm.tech computer science', 'b.sc. computer science', 'm.sc. computer science'],
+  cs: ['computer science', 'b.tech cse'],
+  it: ['information technology', 'b.sc. information technology', 'm.tech it', 'm.sc. information technology'],
+  bca: ['bca (bachelor of computer applications)', 'bca'],
+  mca: ['mca (master of computer applications)', 'mca'],
+  aids: ['artificial intelligence & data science', 'artificial intelligence and data science'],
+  'ai&ds': ['artificial intelligence & data science', 'artificial intelligence and data science'],
+  aiml: ['artificial intelligence & machine learning', 'artificial intelligence and machine learning'],
+  'ai&ml': ['artificial intelligence & machine learning', 'artificial intelligence and machine learning'],
+  ai: ['artificial intelligence', 'artificial intelligence & data science', 'artificial intelligence & machine learning'],
+  ml: ['machine learning', 'artificial intelligence & machine learning'],
+  ds: ['data science', 'artificial intelligence & data science'],
+  cyber: ['cyber security'],
+  cloud: ['cloud computing'],
+  se: ['software engineering'],
+
+  // Electrical & Energy
+  eee: ['electrical & electronics engineering', 'electrical and electronics engineering', 'electrical & energy', 'm.tech power systems', 'power electronics', 'electrical machines'],
+  ee: ['electrical & electronics engineering', 'electrical'],
+  pe: ['power electronics', 'production engineering'],
+  ps: ['power systems'],
+  re: ['renewable energy'],
+
+  // Electronics & Communication
+  ece: ['electronics & communication engineering', 'electronics and communication engineering', 'm.tech ece'],
+  ec: ['electronics & communication engineering'],
+  vlsi: ['vlsi design', 'm.tech vlsi'],
+  iot: ['sensors & iot'],
+  embed: ['embedded systems'],
+
+  // Mechanical & Related
+  me: ['mechanical engineering', 'm.tech mechanical', 'thermal engineering', 'automobile engineering', 'manufacturing engineering', 'industrial engineering'],
+  mech: ['mechanical engineering', 'm.tech mechanical'],
+  ae: ['automobile engineering', 'aerospace engineering'],
+  aero: ['aerospace engineering'],
+  auto: ['automobile engineering'],
+  robo: ['robotics & automation'],
+
+  // Civil & Architecture
+  ce: ['civil engineering', 'm.tech civil', 'structural engineering'],
+  civil: ['civil engineering', 'm.tech civil', 'structural engineering'],
+  arch: ['architecture', 'm.arch'],
+
+  // Chemical & Materials
+  che: ['chemical engineering'],
+  chem: ['chemistry', 'chemical engineering'],
+  mme: ['metallurgical & materials engineering'],
+
+  // Other Engineering
+  bme: ['biomedical engineering'],
+  agri: ['agricultural engineering', 'agriculture'],
+  ft: ['food technology'],
+
+  // Management & Commerce
+  bba: ['bba', 'bachelor of business administration'],
+  mba: ['mba', 'master of business administration', 'pgdm', 'executive mba'],
+  bcom: ['b.com', 'commerce'],
+  mcom: ['m.com'],
+  pgdm: ['pgdm'],
+
+  // Science
+  phy: ['physics'],
+  math: ['mathematics'],
+  bio: ['biology', 'biotechnology', 'microbiology'],
+  biotech: ['biotechnology'],
+
+  // Law
+  law: ['ba llb', 'llb', 'llm', 'integrated law', 'law'],
+  llb: ['ba llb', 'llb', 'bba llb', 'b.com llb'],
+  llm: ['llm'],
+
+  // Pharmacy
+  pharm: ['d.pharm', 'b.pharm', 'm.pharm', 'pharm.d', 'pharmacy'],
+  bpharm: ['b.pharm'],
+  dpharm: ['d.pharm'],
+  mpharm: ['m.pharm'],
+
+  // Health
+  nursing: ['b.sc. nursing', 'm.sc. nursing', 'gnm'],
+  nurse: ['nursing'],
+  bpt: ['bpt', 'physiotherapy'],
+  mpt: ['mpt', 'physiotherapy'],
+
+  // Education
+  bed: ['b.ed', 'b.el.ed'],
+  med: ['m.ed'],
+
+  // Campus Services
+  admin: ['administration'],
+  lib: ['library'],
+  hostel: ['hostel'],
+};
+
+function getDeptStyle(department) {
+  if (!department) {
+    return {
+      bg: '#f1f5f9',
+      color: '#475569',
+      border: '#cbd5e1',
+      badge: 'DEPT',
+      accent: '#64748b',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  const name = (department.name || '').toLowerCase();
+  const code = (department.code || '').toUpperCase();
+  const category = (department.category || '').toLowerCase();
+
+  // 1. Computer Science & Engineering / Computer & IT -> RED (User request: CSE is red)
+  if (
+    code === 'CSE' ||
+    name.includes('computer science') ||
+    code.includes('CS') ||
+    name.includes('cse') ||
+    category.includes('computer')
+  ) {
+    return {
+      bg: '#fef2f2',
+      color: '#dc2626',
+      border: '#fca5a5',
+      badge: code.includes('CSE') || name.includes('cse') ? 'CSE' : (code || 'CS'),
+      accent: '#b91c1c',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 2. Electrical & Electronics Engineering (EEE) -> BLUE (User request: EEE is blue)
+  if (
+    code === 'EEE' ||
+    name.includes('electrical & electronics') ||
+    name.includes('electrical and electronics') ||
+    category.includes('electrical') ||
+    code.includes('PWR') ||
+    code.includes('RE')
+  ) {
+    return {
+      bg: '#eff6ff',
+      color: '#2563eb',
+      border: '#93c5fd',
+      badge: code.includes('EEE') || name.includes('eee') ? 'EEE' : (code || 'EEE'),
+      accent: '#1d4ed8',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 3. Electronics & Communication (ECE) -> CYAN / TEAL
+  if (
+    code === 'ECE' ||
+    name.includes('electronics & communication') ||
+    category.includes('electronics & communication') ||
+    code.includes('VLSI') ||
+    code.includes('EMBED')
+  ) {
+    return {
+      bg: '#ecfeff',
+      color: '#0891b2',
+      border: '#a5f3fc',
+      badge: code || 'ECE',
+      accent: '#0e7490',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 4. Mechanical & Related -> VIBRANT ORANGE
+  if (
+    code === 'ME' ||
+    name.includes('mechanical') ||
+    category.includes('mechanical') ||
+    code.includes('AUTO') ||
+    code.includes('AERO') ||
+    name.includes('thermal')
+  ) {
+    return {
+      bg: '#fff7ed',
+      color: '#ea580c',
+      border: '#fed7aa',
+      badge: code || 'MECH',
+      accent: '#c2410c',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 5. Civil & Architecture -> DEEP EMERALD GREEN
+  if (
+    code === 'CE' ||
+    name.includes('civil') ||
+    category.includes('civil') ||
+    name.includes('structural') ||
+    name.includes('architecture')
+  ) {
+    return {
+      bg: '#f0fdf4',
+      color: '#16a34a',
+      border: '#86efac',
+      badge: code || 'CIVIL',
+      accent: '#15803d',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 6. Science -> PURPLE
+  if (category.includes('science') && !category.includes('computer')) {
+    return {
+      bg: '#faf5ff',
+      color: '#9333ea',
+      border: '#d8b4fe',
+      badge: code || 'SCI',
+      accent: '#7e22ce',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 7. Management (MBA, BBA) -> INDIGO
+  if (category.includes('management') || code.includes('MBA') || code.includes('BBA')) {
+    return {
+      bg: '#eef2ff',
+      color: '#4f46e5',
+      border: '#a5b4fc',
+      badge: code || 'MGMT',
+      accent: '#4338ca',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 8. Commerce & Business -> TEAL
+  if (category.includes('commerce') || code.includes('BCOM') || code.includes('MCOM')) {
+    return {
+      bg: '#f0fdfa',
+      color: '#0d9488',
+      border: '#5eead4',
+      badge: code || 'COMM',
+      accent: '#0f766e',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 9. Arts & Humanities -> ROSE
+  if (category.includes('arts') || category.includes('humanities')) {
+    return {
+      bg: '#fff1f2',
+      color: '#e11d48',
+      border: '#fda4af',
+      badge: code || 'ARTS',
+      accent: '#be123c',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 10. Law -> BURGUNDY
+  if (category.includes('law') || code.includes('LLB') || code.includes('LLM')) {
+    return {
+      bg: '#fdf2f8',
+      color: '#be185d',
+      border: '#fbcfe8',
+      badge: code || 'LAW',
+      accent: '#881337',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 11. Pharmacy -> SKY BLUE
+  if (category.includes('pharmacy') || code.includes('PHARM')) {
+    return {
+      bg: '#f0f9ff',
+      color: '#0284c7',
+      border: '#7dd3fc',
+      badge: code || 'PHARM',
+      accent: '#0369a1',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 12. Agriculture -> OLIVE LIME
+  if (category.includes('agriculture') || code.includes('AGRI')) {
+    return {
+      bg: '#f7fee7',
+      color: '#65a30d',
+      border: '#bef264',
+      badge: code || 'AGRI',
+      accent: '#4d7c0f',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 13. Health & Allied -> CORAL PINK
+  if (category.includes('health') || code.includes('NURS') || code.includes('BPT')) {
+    return {
+      bg: '#fff1f2',
+      color: '#f43f5e',
+      border: '#fecdd3',
+      badge: code || 'HLTH',
+      accent: '#e11d48',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 14. Education -> WARM AMBER
+  if (category.includes('education') || code.includes('BED') || code.includes('MED')) {
+    return {
+      bg: '#fffbeb',
+      color: '#d97706',
+      border: '#fcd34d',
+      badge: code || 'EDU',
+      accent: '#b45309',
+      fontFamily: "'DM Sans', sans-serif",
+    };
+  }
+
+  // 15. Fallback / Miscellaneous / Campus Services -> SLATE
+  return {
+    bg: '#f8fafc',
+    color: '#475569',
+    border: '#cbd5e1',
+    badge: code || 'GEN',
+    accent: '#334155',
+    fontFamily: "'DM Sans', sans-serif",
+  };
+}
+
+function normalizeSearchText(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function matchesDeptSearch(dept, query) {
+  if (!query) return true;
+  const cleanQ = query.trim().toLowerCase();
+  if (!cleanQ) return true;
+
+  const name = (dept.name || '').toLowerCase();
+  const code = (dept.code || '').toLowerCase();
+  const category = (dept.category || '').toLowerCase();
+
+  // 1. Direct name / code / category substring
+  if (name.includes(cleanQ) || code.includes(cleanQ) || category.includes(cleanQ)) {
+    return true;
+  }
+
+  // 2. Normalized text match (& <-> and, punctuation, spacing)
+  const normName = normalizeSearchText(dept.name);
+  const normQ = normalizeSearchText(cleanQ);
+  if (normName.includes(normQ) || normQ.includes(normName)) {
+    return true;
+  }
+
+  // 3. Parentheses match (e.g. "(CSE)", "(EEE)", "(AI&DS)", "(ChE)", "(ME)")
+  const parenText = name.match(/\(([^)]+)\)/)?.[1]?.toLowerCase() || '';
+  if (parenText && (parenText === cleanQ || parenText.replace(/[^a-z0-9]/g, '') === cleanQ.replace(/[^a-z0-9]/g, ''))) {
+    return true;
+  }
+
+  // 4. Acronym of words in name
+  const words = name.replace(/[^a-zA-Z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const acronym = words.map((w) => w[0].toLowerCase()).join('');
+  if (acronym === cleanQ || acronym.startsWith(cleanQ)) {
+    return true;
+  }
+
+  // 5. Shortcut dictionary lookup
+  const aliases = SHORTCUT_MAP[cleanQ] || SHORTCUT_MAP[cleanQ.replace(/[^a-z0-9]/g, '')];
+  if (aliases) {
+    for (const alias of aliases) {
+      if (name.includes(alias) || category.includes(alias) || code.includes(alias) || normName.includes(normalizeSearchText(alias))) {
+        return true;
+      }
+    }
+  }
+
+  // 6. Multi-word query (e.g. "computer science", "electrical electronics")
+  const queryParts = cleanQ.split(/\s+/).filter(Boolean);
+  if (queryParts.length > 1) {
+    const allMatch = queryParts.every((part) => normName.includes(part) || category.includes(part));
+    if (allMatch) return true;
+  }
+
+  return false;
+}
+
+function DepartmentSearchSelect({
+  departments = [],
+  value,
+  onChange,
+  disabled = false,
+  loading = false,
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Close when clicking outside
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isOpen]);
+
+  // Focus search input on open
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 40);
+    }
+  }, [isOpen]);
+
+  const selectedDepartment = useMemo(() => {
+    return departments.find((d) => String(d.id) === String(value));
+  }, [departments, value]);
+
+  const filteredDepartments = useMemo(() => {
+    return departments.filter((dept) => matchesDeptSearch(dept, search));
+  }, [departments, search]);
+
+  // Group filtered departments by category
+  const groupedDepartments = useMemo(() => {
+    const groups = {};
+    for (const dept of filteredDepartments) {
+      const cat = dept.category || 'General';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(dept);
+    }
+    return groups;
+  }, [filteredDepartments]);
+
+  const selectedStyle = getDeptStyle(selectedDepartment);
+
+  function handleSelect(dept) {
+    onChange(dept.id);
+    setIsOpen(false);
+    setSearch('');
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  }
+
+  return (
+    <div
+      className={`dept-select-wrap ${isOpen ? 'dept-select-open' : ''}`}
+      ref={containerRef}
+      onKeyDown={handleKeyDown}
+    >
+      <button
+        type="button"
+        className={`dept-select-trigger ${disabled ? 'disabled' : ''}`}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <div className="dept-selected-content">
+          {selectedDepartment ? (
+            <>
+              <span
+                className="dept-badge"
+                style={{
+                  backgroundColor: selectedStyle.bg,
+                  color: selectedStyle.color,
+                  borderColor: selectedStyle.border,
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                  fontFamily: selectedStyle.fontFamily,
+                }}
+              >
+                {selectedStyle.badge}
+              </span>
+              <span className="dept-selected-name" style={{ color: selectedStyle.color, fontWeight: 700 }}>
+                {selectedDepartment.name}
+              </span>
+            </>
+          ) : (
+            <span className="dept-placeholder">
+              <Search size={14} style={{ opacity: 0.6 }} />
+              {loading ? 'Loading all 169 departments…' : 'Search or choose department (e.g. CSE, EEE, Mech)…'}
+            </span>
+          )}
+        </div>
+        <ChevronDown size={15} style={{ opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+      </button>
+
+      {isOpen && (
+        <div className="dept-dropdown-panel" role="listbox">
+          <div className="dept-search-box">
+            <Search size={14} style={{ color: '#64748b', flexShrink: 0 }} />
+            <input
+              ref={inputRef}
+              type="text"
+              className="dept-search-input"
+              placeholder="Type shortcut (CSE, EEE, ECE, ME, CE) or branch name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search department"
+            />
+            {search && (
+              <button
+                type="button"
+                className="dept-clear-btn"
+                onClick={() => setSearch('')}
+                title="Clear search"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          <div className="dept-count-badge">
+            <span>
+              {search
+                ? `Found ${filteredDepartments.length} matching branch${filteredDepartments.length === 1 ? '' : 'es'}`
+                : `All 169 departments (${departments.length} available)`}
+            </span>
+            <small style={{ color: '#94a3b8', fontWeight: 'normal' }}>
+              Instant filter active
+            </small>
+          </div>
+
+          <div className="dept-options-list">
+            {filteredDepartments.length === 0 ? (
+              <div className="dept-empty">
+                <p>No department found matching &ldquo;<strong>{search}</strong>&rdquo;</p>
+                <small style={{ color: '#94a3b8' }}>Try searching by shortcut like CSE, EEE, ME, CE, or MBA.</small>
+              </div>
+            ) : (
+              Object.entries(groupedDepartments).map(([cat, list]) => (
+                <div key={cat} className="dept-group">
+                  <div className="dept-group-header">
+                    <span>{cat}</span>
+                    <span style={{ fontSize: 9, opacity: 0.7, fontWeight: 'normal' }}>({list.length})</span>
+                  </div>
+                  {list.map((dept) => {
+                    const isSelected = String(dept.id) === String(value);
+                    const style = getDeptStyle(dept);
+                    return (
+                      <button
+                        key={dept.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        className={`dept-option ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleSelect(dept)}
+                      >
+                        <span
+                          className="dept-badge"
+                          style={{
+                            backgroundColor: style.bg,
+                            color: style.color,
+                            borderColor: style.border,
+                            borderWidth: 1,
+                            borderStyle: 'solid',
+                            fontFamily: style.fontFamily,
+                          }}
+                        >
+                          {style.badge}
+                        </span>
+                        <span className="dept-option-name" style={{ color: isSelected ? style.accent : undefined }}>
+                          {dept.name}
+                        </span>
+                        <span className="dept-option-cat">{cat}</span>
+                        {isSelected && <Check size={14} style={{ color: style.accent, marginLeft: 4 }} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LoginPage({ identifier, password, error, pending, onIdentifier, onPassword, onSubmit, onDemo, onRegister }) {
   const [mode, setMode] = useState('login');
   const [departments, setDepartments] = useState([]);
   const [departmentError, setDepartmentError] = useState('');
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
@@ -343,6 +930,11 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
   function submitRegistration(event) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
+    const deptId = selectedDepartmentId || values.get('departmentId');
+    if (!deptId) {
+      setFormError('Please choose your college department.');
+      return;
+    }
     if (values.get('password') !== values.get('confirmPassword')) {
       setFormError('The passwords do not match.');
       return;
@@ -350,7 +942,7 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
     setFormError('');
     onRegister({
       studentId: values.get('studentId'), fullName: values.get('fullName'), email: values.get('email'),
-      departmentId: Number(values.get('departmentId')), year: Number(values.get('year')),
+      departmentId: Number(deptId), year: Number(values.get('year')),
       section: values.get('section'), phone: values.get('phone'), password: values.get('password'),
     });
   }
@@ -366,7 +958,24 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
       </form> : <form onSubmit={submitRegistration} className="login-form registration-form">
         <div className="registration-fields"><label>Student ID<input name="studentId" autoComplete="off" minLength="3" maxLength="80" placeholder="Your college student ID" pattern="[A-Za-z0-9-]+" title="Use letters, numbers, and hyphens only." required /></label><label>Full name<input name="fullName" autoComplete="name" minLength="2" maxLength="160" placeholder="As recorded by your college" required /></label></div>
         <label>College email<input name="email" type="email" autoComplete="email" maxLength="255" placeholder="you@college.edu" required /></label>
-        <div className="registration-fields"><label>Department<select name="departmentId" defaultValue="" required disabled={departments.length === 0}><option value="" disabled>{departmentsLoading ? 'Loading departments…' : departments.length ? 'Choose department' : 'Unavailable'}</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select></label><label>Year<select name="year" defaultValue="" required><option value="" disabled>Choose year</option>{[1, 2, 3, 4, 5, 6, 7, 8].map((year) => <option key={year} value={year}>{year}{year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'} year</option>)}</select></label></div>
+        <div className="registration-fields">
+          <label style={{ position: 'relative' }}>Department
+            <DepartmentSearchSelect
+              departments={departments}
+              value={selectedDepartmentId}
+              onChange={setSelectedDepartmentId}
+              disabled={departments.length === 0}
+              loading={departmentsLoading}
+            />
+            <input type="hidden" name="departmentId" value={selectedDepartmentId || ''} required />
+          </label>
+          <label>Year
+            <select name="year" defaultValue="" required>
+              <option value="" disabled>Choose year</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((year) => <option key={year} value={year}>{year}{year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'} year</option>)}
+            </select>
+          </label>
+        </div>
         {departmentError && <div className="department-error" role="alert"><span>{departmentError}</span><button type="button" className="department-retry" onClick={loadDepartments} disabled={departmentsLoading}>{departmentsLoading ? 'Retrying…' : 'Retry'}</button></div>}
         <div className="registration-fields"><label>Section<input name="section" maxLength="20" placeholder="e.g. A" required /></label><label>Phone <span className="optional-label">OPTIONAL</span><input name="phone" type="tel" maxLength="30" autoComplete="tel" placeholder="Phone number" /></label></div>
         <div className="registration-fields"><label>Password<input name="password" type="password" autoComplete="new-password" minLength="10" maxLength="128" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{10,128}" title="Use at least 10 characters with uppercase, lowercase, and a number." required /></label><label>Confirm password<input name="confirmPassword" type="password" autoComplete="new-password" minLength="10" maxLength="128" required /></label></div>
@@ -375,7 +984,7 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
         {(formError || error) && <div className="login-error" role="alert">{formError || error}</div>}
         <button className="button-primary login-submit" disabled={pending || departments.length === 0}>{pending ? 'Creating account…' : 'Create account'}<ArrowRight size={17} /></button>
       </form>}
-      <div className="auth-switch">{mode === 'login' ? <>New to Campus Care? <button type="button" onClick={() => { setMode('register'); setFormError(''); }}>Create a student account</button></> : <>Already registered? <button type="button" onClick={() => { setMode('login'); setFormError(''); }}>Sign in instead</button></>}</div>
+      <div className="auth-switch">{mode === 'login' ? <>New to Campus Care? <button type="button" onClick={() => { setMode('register'); setFormError(''); setSelectedDepartmentId(''); }}>Create a student account</button></> : <>Already registered? <button type="button" onClick={() => { setMode('login'); setFormError(''); setSelectedDepartmentId(''); }}>Sign in instead</button></>}</div>
       {mode === 'login' && import.meta.env.DEV && <><div className="demo-divider"><span /> QUICK DEMO ACCESS <span /></div><div className="demo-accounts">{DEMO_ACCOUNTS.map(({ label, identifier: demoId, icon: Icon }) => <button key={label} onClick={() => onDemo(demoId)} className="demo-account"><Icon size={17} /><span><strong>{label}</strong><small>{demoId}</small></span><ArrowUpRight size={14} className="demo-arrow" /></button>)}</div></>}
       <div className="login-security"><ShieldCheck size={15} /> Your information is only visible to authorized staff.</div>
     </div><div className="login-form-footer">© 2026 Northfield College <span>•</span> Student support, made simple</div></section>
@@ -407,7 +1016,7 @@ function ComplaintTable({ rows, user, compact = false, search = '', statusFilter
   return <div className={`table-shell ${compact ? 'table-compact' : ''}`}>
     {!compact && <div className="table-toolbar"><div className="table-search"><Search size={16} /><input aria-label="Search complaints" placeholder="Search by ID, title or student" value={search} onChange={(event) => onSearch(event.target.value)} /></div><label className="filter-select"><Filter size={15} /><select aria-label="Filter by status" value={statusFilter} onChange={(event) => onFilter(event.target.value)}><option>All statuses</option>{STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}</select><ChevronDown size={14} /></label></div>}
     {rows.length ? <div className="table-overflow"><table><thead><tr><th>REFERENCE</th><th>COMPLAINT</th>{admin && <th>STUDENT</th>}<th>PRIORITY</th><th>STATUS</th><th>UPDATED</th><th><span className="sr-only">Open complaint</span></th></tr></thead><tbody>{rows.map((row) => <tr key={row.complaintId} onClick={() => onOpen(row)} tabIndex="0" onKeyDown={(event) => event.key === 'Enter' && onOpen(row)}>
-      <td><span className="case-id">{row.complaintId}</span></td><td><div className="case-title">{row.title}</div><div className="case-meta">{row.category}<span>·</span>{row.department}</div></td>{admin && <td><div className="student-cell">{row.studentName}<small>{row.studentLoginId}</small></div></td>}
+      <td><span className="case-id">{row.complaintId}</span></td><td><div className="case-title">{row.title}</div><div className="case-meta">{row.category}<span>·</span>{row.department && (() => { const dStyle = getDeptStyle({ name: row.department }); return <span style={{ color: dStyle.accent, fontWeight: 700 }}>{row.department}</span>; })()}</div></td>{admin && <td><div className="student-cell">{row.studentName}<small>{row.studentLoginId}</small></div></td>}
       <td><span className={`priority priority-${row.priority.toLowerCase()}`}><i />{row.priority}</span></td><td><span className={statusClass(row.status)}><i />{row.status}</span></td><td className="updated-cell">{compact ? timeAgo(row.updatedAt) : shortDate(row.updatedAt)}</td>
       <td><button className="row-open" aria-label={`Open ${row.complaintId}`} onClick={(event) => { event.stopPropagation(); onOpen(row); }}><ArrowUpRight size={16} /></button></td>
     </tr>)}</tbody></table></div> : <div className="empty-state"><div className="empty-icon"><ClipboardList size={21} /></div><strong>{search ? 'No matching complaints' : 'No complaints to show'}</strong><p>{search ? 'Try another keyword or clear the status filter.' : staffUser ? 'New cases assigned to you will appear here.' : 'When you submit a complaint, it will appear here.'}</p></div>}
@@ -422,7 +1031,15 @@ function SubmitPage({ user, categories, onSubmit, onCancel }) {
       <div className="form-field-grid"><label>Category<select name="categoryId" required defaultValue=""><option value="" disabled>Choose a category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label>Priority<select name="priority" defaultValue="Medium"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></label></div>
       <label>Complaint title<input name="title" minLength="5" maxLength="180" placeholder="A clear, short summary" required /></label><label>What happened?<textarea name="description" minLength="20" maxLength="5000" rows="5" placeholder="Share the details that will help us understand the situation…" required /><span className="field-hint">Include when and where it happened, and what you’ve already tried.</span></label>
       <div className="form-section-label form-section-second"><span>02</span><div><strong>Where should this go?</strong><small>We’ll route your concern to the right department.</small></div></div>
-      <label>Your department<input value={user.department || 'Not assigned'} readOnly /></label>
+      <label>Your department
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {user.department && (() => {
+            const dStyle = getDeptStyle({ name: user.department });
+            return <span className="dept-badge" style={{ backgroundColor: dStyle.bg, color: dStyle.color, borderColor: dStyle.border, borderWidth: 1, borderStyle: 'solid' }}>{dStyle.badge}</span>;
+          })()}
+          <input value={user.department || 'Not assigned'} readOnly style={{ flex: 1 }} />
+        </div>
+      </label>
       <div className="attachment-box"><label className="attachment-label"><span className="attachment-icon"><FilePlus2 size={17} /></span><span><strong>{attachmentName || 'Add a supporting file'}</strong><small>{attachmentName ? 'File attached' : 'Optional · PNG, JPG, or PDF (up to 5MB)'}</small></span><span className="attachment-browse">{attachmentName ? 'Change' : 'Browse'}</span><input type="file" accept="image/*,.pdf" onChange={(event) => setAttachmentName(event.target.files?.[0]?.name || '')} /></label></div>
       <div className="form-footer"><span><ShieldCheck size={15} /> Only authorized college staff can view your submission.</span><button className="button-primary" type="submit">Submit complaint <ArrowRight size={16} /></button></div>
     </form><aside className="form-aside"><div className="aside-note"><div className="aside-note-icon"><Clock3 size={17} /></div><div className="eyebrow">WHAT HAPPENS NEXT</div><h3>Every step, accounted for.</h3><p>Your complaint receives a reference number and is added to a visible timeline as the team responds.</p><div className="mini-timeline"><div className="mini-step mini-step-active"><span><Check size={11} /></span><div><strong>Submitted</strong><small>We’ve received your report</small></div></div><div className="mini-step"><span>2</span><div><strong>Review</strong><small>Routed to the right team</small></div></div><div className="mini-step"><span>3</span><div><strong>Resolution</strong><small>Follow progress in your dashboard</small></div></div></div></div><div className="privacy-note"><ShieldCheck size={16} /><span><strong>Your privacy matters.</strong> Your personal details are only shared with staff handling this case.</span></div></aside></div>
@@ -433,7 +1050,16 @@ function ComplaintDialog({ complaint, history, user, staff, onClose, onStatus, o
   const [remarks, setRemarks] = useState('');
   return <div className="dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="detail-dialog" role="dialog" aria-modal="true" aria-label={`Complaint ${complaint.complaintId}`}>
     <header className="dialog-header"><div><div className="eyebrow">CASE DETAILS</div><span className="case-id">{complaint.complaintId}</span></div><button className="icon-button" aria-label="Close details" onClick={onClose}><X size={18} /></button></header>
-    <div className="dialog-body"><span className={statusClass(complaint.status)}><i />{complaint.status}</span><h2>{complaint.title}</h2><div className="dialog-tags"><span>{complaint.category}</span><span>{complaint.department}</span><span className={`priority priority-${complaint.priority.toLowerCase()}`}><i />{complaint.priority} priority</span></div><p className="dialog-description">{complaint.description}</p>
+    <div className="dialog-body"><span className={statusClass(complaint.status)}><i />{complaint.status}</span><h2>{complaint.title}</h2>
+      <div className="dialog-tags">
+        <span>{complaint.category}</span>
+        {complaint.department && (() => {
+          const dStyle = getDeptStyle({ name: complaint.department });
+          return <span style={{ backgroundColor: dStyle.bg, color: dStyle.color, borderColor: dStyle.border, borderWidth: 1, borderStyle: 'solid', fontWeight: 700, padding: '4px 8px', borderRadius: '4px' }}>{complaint.department}</span>;
+        })()}
+        <span className={`priority priority-${complaint.priority.toLowerCase()}`}><i />{complaint.priority} priority</span>
+      </div>
+      <p className="dialog-description">{complaint.description}</p>
       <div className="detail-facts"><div><small>SUBMITTED BY</small><strong>{complaint.studentName}</strong><span>{complaint.studentLoginId}</span></div><div><small>SUBMITTED</small><strong>{shortDate(complaint.createdAt)}</strong><span>Last updated {timeAgo(complaint.updatedAt)}</span></div><div><small>ASSIGNED TO</small><strong>{complaint.assignedStaff || 'Not assigned'}</strong><span>{complaint.department}</span></div></div>
       {(user.role === 'admin' || user.role === 'staff') && <div className="dialog-actions">{user.role === 'admin' && <label>Assign to<select value={complaint.assignedStaffId || ''} onChange={(event) => event.target.value && onAssign(complaint.complaintId, event.target.value)}><option value="" disabled>Choose staff member</option>{staff.map((person) => <option key={person.id} value={person.id}>{person.fullName} · {person.department}</option>)}</select></label>}<label>Update status<select value={complaint.status} onChange={(event) => onStatus(complaint.complaintId, event.target.value, remarks)}>{STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}</select></label><label className="remarks-input">Add a remark<textarea rows="2" placeholder="Add context for the student…" value={remarks} onChange={(event) => setRemarks(event.target.value)} /></label></div>}
       {user.role === 'student' && complaint.status === 'Resolved' && <div className="dialog-actions"><label className="remarks-input">Provide Feedback & Close Case<textarea rows="2" placeholder="Share your feedback on how this concern was resolved…" value={remarks} onChange={(event) => setRemarks(event.target.value)} /></label><button className="button-primary" onClick={() => onStatus(complaint.complaintId, 'Closed', remarks ? `Feedback: ${remarks}` : 'Resolved satisfactorily.')}><Check size={16} /> Accept Resolution & Close</button></div>}

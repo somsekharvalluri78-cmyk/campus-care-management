@@ -76,7 +76,7 @@ app.get('/api/health', asyncRoute(async (_request, response) => {
 }));
 
 app.get('/api/departments', asyncRoute(async (_request, response) => {
-  const { rows } = await pool.query("SELECT id, code, name FROM departments WHERE status = 'Active' ORDER BY name");
+  const { rows } = await pool.query("SELECT id, code, name, COALESCE(category, 'Engineering & Technology') AS category FROM departments WHERE status = 'Active' ORDER BY category, name");
   response.json({ departments: rows });
 }));
 
