@@ -29,6 +29,12 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 
 app.use((req, _res, next) => {
+  if (req.url.startsWith('/api/index') || req.url === '/api') {
+    const candidate = req.headers['x-matched-path'] || req.headers['x-invoke-path'] || req.originalUrl;
+    if (candidate && !candidate.startsWith('/api/index')) {
+      req.url = candidate;
+    }
+  }
   if (!req.url.startsWith('/api') && !req.url.startsWith('/robots.txt') && !req.url.startsWith('/sitemap.xml')) {
     const isStatic = req.url.startsWith('/assets') || req.url === '/' || req.url === '/favicon.ico';
     if (!isStatic && (req.url.startsWith('/auth') || req.url.startsWith('/complaints') || req.url.startsWith('/departments') || req.url.startsWith('/dashboard') || req.url.startsWith('/categories') || req.url.startsWith('/notifications') || req.url.startsWith('/staff') || req.url.startsWith('/health'))) {
@@ -360,7 +366,7 @@ app.get('/api/staff', authenticate, allow('admin'), asyncRoute(async (_request, 
   response.json({ staff: rows });
 }));
 
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && process.env.VERCEL !== '1') {
   const frontendDist = resolve(dirname(fileURLToPath(import.meta.url)), '../../frontend/dist');
   app.use(express.static(frontendDist, { index: false }));
   app.get('/robots.txt', (_request, response) => {

@@ -24,7 +24,9 @@ async function request(path, token, options = {}) {
     },
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'The request could not be completed.');
+  if (!response.ok) {
+    throw new Error(data.error || (response.status === 404 ? 'Server endpoint not found. Please refresh.' : 'The request could not be completed.'));
+  }
   return data;
 }
 
