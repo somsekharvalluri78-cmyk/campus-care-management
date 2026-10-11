@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
-  Activity, AlertTriangle, Archive, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, BookOpen, Check, ChevronDown,
-  CircleHelp, ClipboardList, Clock3, Download, Eye, FilePlus2, Filter, LayoutDashboard, Lock, LogOut, Menu,
-  RotateCcw, Search, Settings2, ShieldCheck, Sparkles, Trash2, UserRound, Users, X,
+  Activity, AlertTriangle, Archive, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, BookOpen, Check, ChevronDown,
+  CircleHelp, ClipboardList, Clock3, Download, Eye, FilePlus2, Filter, KeyRound, LayoutDashboard, Lock, LogOut, Menu,
+  RotateCcw, Search, Settings2, ShieldCheck, Sparkles, Trash2, UserPen, UserRound, Users, X,
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '/api';
@@ -70,6 +70,23 @@ function App() {
   const [contextMenu, setContextMenu] = useState(null);
   const [retractTarget, setRetractTarget] = useState(null);
   const [permanentDeleteTarget, setPermanentDeleteTarget] = useState(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
+  const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
+  const [credentialsTab, setCredentialsTab] = useState('username');
+  const profileMenuRef = useRef(null);
+
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileMenuOpen(false);
+      }
+    }
+    if (profileMenuOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [profileMenuOpen]);
 
   async function refreshData(authToken = token) {
     if (!authToken) return;
@@ -170,7 +187,12 @@ function App() {
     }
   }
 
-  function signOut() {
+  function promptSignOut() {
+    setProfileMenuOpen(false);
+    setSignOutConfirmOpen(true);
+  }
+
+  function confirmSignOut() {
     localStorage.removeItem('campus-token');
     setToken(null);
     setUser(null);
@@ -182,6 +204,46 @@ function App() {
     setContextMenu(null);
     setRetractTarget(null);
     setPermanentDeleteTarget(null);
+    setProfileMenuOpen(false);
+    setSignOutConfirmOpen(false);
+    setCredentialsModalOpen(false);
+    // Crucial: Clear username and password completely so sign-in inputs are completely empty!
+    setLoginIdentifier('');
+    setLoginPassword('');
+    setNotice('You have been signed out safely. Please enter your credentials to sign in.');
+  }
+
+  function signOut() {
+    promptSignOut();
+  }
+
+  async function handleUpdateUsername({ currentUsername, newUsername }) {
+    const result = await request('/auth/username', token, {
+      method: 'PATCH',
+      body: JSON.stringify({ currentUsername, newUsername }),
+    });
+    setUser(result.user);
+    setNotice(result.message || 'Username successfully updated in database.');
+    return result;
+  }
+
+  async function handleUpdatePassword({ currentPassword, newPassword }) {
+    const result = await request('/auth/password', token, {
+      method: 'PATCH',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    setNotice(result.message || 'Password successfully updated in database.');
+    return result;
+  }
+
+  async function handleUpdateProfile(profileData) {
+    const result = await request('/auth/profile', token, {
+      method: 'PATCH',
+      body: JSON.stringify(profileData),
+    });
+    setUser(result.user);
+    setNotice(result.message || 'Personal details successfully updated in database.');
+    return result;
   }
 
   async function handleRetractComplaint(complaint) {
@@ -351,17 +413,90 @@ function App() {
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-help"><div className="help-icon"><CircleHelp size={17} /></div><div><strong>Need a hand?</strong><span>Visit the help centre</span></div><ArrowRight size={15} /></div>
-          <button className="profile-mini" onClick={signOut} title="Sign out"><div className="avatar">{user.fullName.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div><div className="profile-mini-copy"><strong>{user.fullName}</strong><span>{user.designation || user.department || user.role}</span></div><LogOut size={16} /></button>
+          <button className="profile-mini" onClick={promptSignOut} title="Sign out"><div className="avatar">{user.fullName.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div><div className="profile-mini-copy"><strong>{user.fullName}</strong><span>{user.designation || user.department || user.role}</span></div><LogOut size={16} /></button>
         </div>
       </aside>
 
       <main className="main-panel">
         <header className="topbar">
           <button className="icon-button mobile-menu-toggle" aria-label="Open navigation" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}><Menu size={19} /></button>
-          <div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><strong>{navItems.find((item) => item.id === activeView)?.label || 'Overview'}</strong></div>
+          <div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><strong>{activeView === 'edit-profile' ? 'Edit Personal Details' : (navItems.find((item) => item.id === activeView)?.label || 'Overview')}</strong></div>
           <div className="topbar-actions"><span className="today-label">{new Intl.DateTimeFormat('en', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}</span>
             <button className={`icon-button notification-button ${notificationOpen ? 'icon-button-active' : ''}`} aria-label="Notifications" onClick={() => setNotificationOpen(!notificationOpen)}><Bell size={18} />{notifications.length > 0 && <i />}</button>
-            <button className="topbar-user" onClick={signOut}><div className="avatar avatar-small">{user.fullName.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div><ChevronDown size={14} /></button>
+            <button
+              type="button"
+              className="topbar-signout-btn"
+              onClick={promptSignOut}
+              title="Sign out of account"
+            >
+              <LogOut size={14} />
+              <span>Sign Out</span>
+            </button>
+            <div className="profile-menu-container" ref={profileMenuRef}>
+              <button
+                type="button"
+                className={`topbar-user ${profileMenuOpen ? 'topbar-user-active' : ''}`}
+                onClick={() => setProfileMenuOpen((prev) => !prev)}
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+                title="Account profile & credentials"
+              >
+                <div className="avatar avatar-small">{user.fullName.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
+                <ChevronDown size={14} style={{ transform: profileMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+              </button>
+              {profileMenuOpen && (
+                <div className="profile-menu-popover" role="menu">
+                  <div className="profile-menu-header">
+                    <div className="avatar avatar-small">{user.fullName.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
+                    <div>
+                      <strong>{user.fullName}</strong>
+                      <small>{user.studentId || user.loginId || user.email}</small>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="profile-menu-item"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      setCredentialsTab('username');
+                      setCredentialsModalOpen(true);
+                    }}
+                  >
+                    <div className="profile-item-icon"><KeyRound size={16} /></div>
+                    <div className="profile-item-copy">
+                      <strong>Edit Sign-in Username & Password</strong>
+                      <p>Update portal login identifier or account password</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    className="profile-menu-item"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      setActiveView('edit-profile');
+                    }}
+                  >
+                    <div className="profile-item-icon"><UserPen size={16} /></div>
+                    <div className="profile-item-copy">
+                      <strong>Edit Personal Details</strong>
+                      <p>Update branch, semester, section & phone</p>
+                    </div>
+                  </button>
+                  <div className="profile-menu-divider" />
+                  <button
+                    type="button"
+                    className="profile-menu-item danger"
+                    onClick={promptSignOut}
+                  >
+                    <div className="profile-item-icon"><LogOut size={16} /></div>
+                    <div className="profile-item-copy">
+                      <strong>Sign Out</strong>
+                      <p>Exit your session safely</p>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           {notificationOpen && <div className="notification-popover"><div className="popover-heading"><strong>Notifications</strong><span>{notifications.length} recent</span></div>{notifications.length ? notifications.slice(0, 5).map((item) => <div className="notification-row" key={item.id}><span className="notification-mark"><Bell size={14} /></span><div><strong>{item.title}</strong><p>{item.message}</p><small>{timeAgo(item.createdAt)}</small></div></div>) : <div className="notification-empty">You’re all caught up.</div>}</div>}
         </header>
@@ -416,6 +551,14 @@ function App() {
             />
           </section>}
           {activeView === 'submit' && <SubmitPage user={user} categories={categories} onSubmit={submitComplaint} onCancel={() => setActiveView('overview')} />}
+          {activeView === 'edit-profile' && (
+            <EditPersonalDetailsPage
+              user={user}
+              onBack={() => setActiveView('overview')}
+              onSave={handleUpdateProfile}
+              onSignOut={promptSignOut}
+            />
+          )}
         </div>
         <footer className="page-footer"><span>Campus Care <span className="footer-dot">/</span> Student services portal</span><span>Private and secure <ShieldCheck size={13} /></span></footer>
       </main>
@@ -570,6 +713,23 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Sign Out Confirmation Modal */}
+      <SignOutConfirmModal
+        isOpen={signOutConfirmOpen}
+        onConfirm={confirmSignOut}
+        onCancel={() => setSignOutConfirmOpen(false)}
+      />
+
+      {/* Edit Sign-in Credentials Modal (Username & Password) */}
+      <CredentialsModal
+        isOpen={credentialsModalOpen}
+        user={user}
+        initialTab={credentialsTab}
+        onClose={() => setCredentialsModalOpen(false)}
+        onSaveUsername={handleUpdateUsername}
+        onSavePassword={handleUpdatePassword}
+      />
     </div>
   );
 }
@@ -2453,6 +2613,732 @@ function ComplaintDialog({
           <span><ShieldCheck size={14} /> Changes are recorded in this case’s history.</span>
           <button className="button-quiet" onClick={onClose}>Done</button>
         </footer>
+      </section>
+    </div>
+  );
+}
+
+function SignOutConfirmModal({ isOpen, onConfirm, onCancel }) {
+  if (!isOpen) return null;
+  return (
+    <div className="confirm-modal-backdrop" onClick={onCancel}>
+      <div className="confirm-modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+        <div className="confirm-modal-top">
+          <div className="confirm-icon-wrap" style={{ background: '#fff1f2', color: '#e11d48', borderColor: '#fecdd3' }}>
+            <LogOut size={22} />
+          </div>
+          <div className="confirm-modal-copy">
+            <h3 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 19, fontWeight: 800, color: '#0f172a' }}>
+              Sign Out Confirmation
+            </h3>
+            <p style={{ marginTop: 6, fontSize: 13.5, color: '#475569', lineHeight: 1.5 }}>
+              Are you sure you want to sign out?
+            </p>
+            <p style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>
+              Your current session will end and you will be returned directly to the sign-in page.
+            </p>
+          </div>
+        </div>
+        <div className="confirm-modal-actions" style={{ marginTop: 20 }}>
+          <button
+            type="button"
+            className="button-quiet"
+            onClick={onCancel}
+            style={{ fontWeight: 600, padding: '9px 18px' }}
+          >
+            No
+          </button>
+          <button
+            type="button"
+            className="button-danger"
+            style={{ background: '#e11d48', borderColor: '#be123c', fontWeight: 700, padding: '9px 20px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            onClick={onConfirm}
+          >
+            <LogOut size={14} /> Yes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CredentialsModal({
+  isOpen,
+  user,
+  initialTab = 'username',
+  onClose,
+  onSaveUsername,
+  onSavePassword,
+}) {
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Username tab states
+  const [currentUsernameInput, setCurrentUsernameInput] = useState('');
+  const [newUsernameInput, setNewUsernameInput] = useState('');
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
+  const [usernameSuccess, setUsernameSuccess] = useState('');
+
+  // Password tab states
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab, isOpen]);
+
+  useEffect(() => {
+    setUsernameError('');
+    setUsernameSuccess('');
+    setPasswordError('');
+    setPasswordSuccess('');
+  }, [activeTab, isOpen]);
+
+  if (!isOpen || !user) return null;
+
+  const activeUserIdentifier = String(user.loginId || user.studentId || user.identifier || '').trim();
+  const isCurrentUsernameEntered = currentUsernameInput.trim().length > 0;
+  const isUsernameMatched = isCurrentUsernameEntered && (currentUsernameInput.trim().toLowerCase() === activeUserIdentifier.toLowerCase());
+
+  async function handleUsernameSubmit(e) {
+    e.preventDefault();
+    setUsernameError('');
+    setUsernameSuccess('');
+
+    if (!isUsernameMatched) {
+      setUsernameError(`Current username entered does not match your active account username (${activeUserIdentifier}). Please verify and retry.`);
+      return;
+    }
+    if (!newUsernameInput.trim() || newUsernameInput.trim().length < 3) {
+      setUsernameError('New username must be at least 3 characters long.');
+      return;
+    }
+    if (newUsernameInput.trim().toLowerCase() === activeUserIdentifier.toLowerCase()) {
+      setUsernameError('New username cannot be the same as your current username.');
+      return;
+    }
+
+    setUsernameSaving(true);
+    try {
+      await onSaveUsername({
+        currentUsername: currentUsernameInput.trim(),
+        newUsername: newUsernameInput.trim(),
+      });
+      setUsernameSuccess(`Username successfully updated to "${newUsernameInput.trim()}" in the database! Please use this new username for future sign-ins.`);
+      setCurrentUsernameInput('');
+      setNewUsernameInput('');
+    } catch (err) {
+      setUsernameError(err.message || 'Failed to update username in database.');
+    } finally {
+      setUsernameSaving(false);
+    }
+  }
+
+  async function handlePasswordSubmit(e) {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!currentPasswordInput) {
+      setPasswordError('Please enter your current password.');
+      return;
+    }
+    if (newPasswordInput.length < 10) {
+      setPasswordError('New password must be at least 10 characters long.');
+      return;
+    }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])/.test(newPasswordInput)) {
+      setPasswordError('New password must contain uppercase, lowercase letters and at least one number.');
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordError('The new passwords do not match. Please verify both fields.');
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      await onSavePassword({
+        currentPassword: currentPasswordInput,
+        newPassword: newPasswordInput,
+      });
+      setPasswordSuccess('Password successfully updated and securely hashed in the database! Please use your new password for all future sign-ins.');
+      setCurrentPasswordInput('');
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+    } catch (err) {
+      setPasswordError(err.message || 'Failed to update password in database.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
+  return (
+    <div className="confirm-modal-backdrop" onClick={onClose}>
+      <div className="credentials-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <KeyRound size={18} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontFamily: "'Outfit', sans-serif", fontSize: 18, fontWeight: 800, color: '#0f172a' }}>
+                  Edit Sign-in Credentials
+                </h3>
+                <small style={{ color: '#64748b', fontSize: 11.5, fontFamily: "'Space Grotesk', sans-serif" }}>
+                  Active User ID: {activeUserIdentifier}
+                </small>
+              </div>
+            </div>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close credentials modal">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Two Options / Tabs */}
+        <div className="credentials-tabs">
+          <button
+            type="button"
+            className={`credentials-tab-btn ${activeTab === 'username' ? 'active' : ''}`}
+            onClick={() => setActiveTab('username')}
+          >
+            <UserRound size={15} />
+            <span>Edit Username</span>
+          </button>
+          <button
+            type="button"
+            className={`credentials-tab-btn ${activeTab === 'password' ? 'active' : ''}`}
+            onClick={() => setActiveTab('password')}
+          >
+            <Lock size={15} />
+            <span>Edit Password</span>
+          </button>
+        </div>
+
+        {/* Option 1: Edit Username */}
+        {activeTab === 'username' && (
+          <form onSubmit={handleUsernameSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ margin: '0 0 6px', fontSize: 12.5, color: '#475569', lineHeight: 1.45 }}>
+              For editing the username, please enter your current username. If it matches your registered account, update your new username and save the change to the database.
+            </p>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1e293b', marginBottom: 4, fontFamily: "'Outfit', sans-serif" }}>
+                Current Username
+              </label>
+              <input
+                type="text"
+                value={currentUsernameInput}
+                onChange={(e) => {
+                  setCurrentUsernameInput(e.target.value);
+                  setUsernameError('');
+                  setUsernameSuccess('');
+                }}
+                placeholder="Enter current username (e.g. STU-2026-001)"
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  border: `1.5px solid ${isUsernameMatched ? '#10b981' : isCurrentUsernameEntered ? '#f59e0b' : '#cbd5e1'}`,
+                  fontFamily: "'Space Grotesk', monospace",
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+                required
+              />
+              <div style={{ marginTop: 4, fontSize: 11 }}>
+                {isUsernameMatched ? (
+                  <span style={{ color: '#059669', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Check size={12} strokeWidth={3} /> Current username matches! Please update your new username below.
+                  </span>
+                ) : isCurrentUsernameEntered ? (
+                  <span style={{ color: '#d97706', fontWeight: 600 }}>
+                    Enter your exact active username to enable new username field.
+                  </span>
+                ) : (
+                  <span style={{ color: '#94a3b8' }}>
+                    Please enter your current username.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Display new username field once current username matches */}
+            <div style={{ opacity: isUsernameMatched ? 1 : 0.5, transition: 'opacity 0.2s ease', pointerEvents: isUsernameMatched ? 'auto' : 'none' }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1e293b', marginBottom: 4, fontFamily: "'Outfit', sans-serif" }}>
+                Update New Username Here
+              </label>
+              <input
+                type="text"
+                value={newUsernameInput}
+                onChange={(e) => {
+                  setNewUsernameInput(e.target.value);
+                  setUsernameError('');
+                }}
+                disabled={!isUsernameMatched}
+                placeholder={isUsernameMatched ? "Please enter your new username" : "Unlock by verifying current username"}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  border: '1.5px solid #cbd5e1',
+                  fontFamily: "'Space Grotesk', monospace",
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+                pattern="[A-Za-z0-9_-]+"
+                title="Letters, numbers, hyphens, and underscores."
+                required={isUsernameMatched}
+              />
+              <small style={{ display: 'block', marginTop: 4, fontSize: 11, color: '#64748b' }}>
+                When saved, the database will store this present username for sign-in access.
+              </small>
+            </div>
+
+            {usernameError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecdd3', color: '#b91c1c', padding: '8px 12px', borderRadius: 6, fontSize: 12 }}>
+                {usernameError}
+              </div>
+            )}
+            {usernameSuccess && (
+              <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '8px 12px', borderRadius: 6, fontSize: 12 }}>
+                {usernameSuccess}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10, paddingTop: 14, borderTop: '1px solid #f1f5f9' }}>
+              <button type="button" className="button-quiet" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="button-primary"
+                disabled={!isUsernameMatched || !newUsernameInput.trim() || usernameSaving}
+                style={{ fontWeight: 700 }}
+              >
+                {usernameSaving ? 'Saving to Database…' : 'Save Username'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Option 2: Edit Password */}
+        {activeTab === 'password' && (
+          <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ margin: '0 0 6px', fontSize: 12.5, color: '#475569', lineHeight: 1.45 }}>
+              For editing the password, please enter your current password. Once verified, update your new password and save the change to the database.
+            </p>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1e293b', marginBottom: 4, fontFamily: "'Outfit', sans-serif" }}>
+                Current Password
+              </label>
+              <input
+                type="password"
+                value={currentPasswordInput}
+                onChange={(e) => {
+                  setCurrentPasswordInput(e.target.value);
+                  setPasswordError('');
+                  setPasswordSuccess('');
+                }}
+                placeholder="Enter current password"
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+                required
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1e293b', marginBottom: 4, fontFamily: "'Outfit', sans-serif" }}>
+                Update New Password Here
+              </label>
+              <input
+                type="password"
+                value={newPasswordInput}
+                onChange={(e) => {
+                  setNewPasswordInput(e.target.value);
+                  setPasswordError('');
+                }}
+                placeholder="Min 10 chars with uppercase, lowercase & numbers"
+                minLength={10}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+                required
+              />
+              <small style={{ display: 'block', marginTop: 4, fontSize: 11, color: '#64748b' }}>
+                Use at least 10 characters, with uppercase and lowercase letters plus a number.
+              </small>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#1e293b', marginBottom: 4, fontFamily: "'Outfit', sans-serif" }}>
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                value={confirmPasswordInput}
+                onChange={(e) => {
+                  setConfirmPasswordInput(e.target.value);
+                  setPasswordError('');
+                }}
+                placeholder="Re-enter new password"
+                minLength={10}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+                required
+              />
+            </div>
+
+            {passwordError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecdd3', color: '#b91c1c', padding: '8px 12px', borderRadius: 6, fontSize: 12 }}>
+                {passwordError}
+              </div>
+            )}
+            {passwordSuccess && (
+              <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', padding: '8px 12px', borderRadius: 6, fontSize: 12 }}>
+                {passwordSuccess}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10, paddingTop: 14, borderTop: '1px solid #f1f5f9' }}>
+              <button type="button" className="button-quiet" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="button-primary"
+                disabled={!currentPasswordInput || !newPasswordInput || !confirmPasswordInput || passwordSaving}
+                style={{ fontWeight: 700 }}
+              >
+                {passwordSaving ? 'Saving to Database…' : 'Save Password'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EditPersonalDetailsPage({
+  user,
+  onBack,
+  onSave,
+  onSignOut,
+}) {
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const [fullName, setFullName] = useState(user.fullName || '');
+  const [email, setEmail] = useState(user.email || '');
+  const [selectedDeptId, setSelectedDeptId] = useState(user.departmentId ? String(user.departmentId) : '');
+  const [selectedYear, setSelectedYear] = useState(user.year ? String(user.year) : '');
+  const [selectedSemester, setSelectedSemester] = useState(user.semester || 1);
+  const [section, setSection] = useState(user.section || 'A');
+  const [phone, setPhone] = useState(user.phone || '');
+  const [saving, setSaving] = useState(false);
+  const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
+
+  useEffect(() => {
+    async function loadDepts() {
+      setDepartmentsLoading(true);
+      try {
+        const res = await request('/departments', null);
+        setDepartments(res.departments || []);
+      } catch (e) {
+        console.error('Failed to load departments', e);
+      } finally {
+        setDepartmentsLoading(false);
+      }
+    }
+    loadDepts();
+  }, []);
+
+  const selectedDept = useMemo(() => {
+    return departments.find((d) => String(d.id) === String(selectedDeptId));
+  }, [departments, selectedDeptId]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setStatusMsg({ type: '', text: '' });
+
+    if (!fullName.trim()) {
+      setStatusMsg({ type: 'error', text: 'Full name is required.' });
+      return;
+    }
+    if (!email.trim()) {
+      setStatusMsg({ type: 'error', text: 'College email is required.' });
+      return;
+    }
+    if (!selectedDeptId) {
+      setStatusMsg({ type: 'error', text: 'Please choose your department.' });
+      return;
+    }
+    if (!selectedYear) {
+      setStatusMsg({ type: 'error', text: 'Please choose your academic year.' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onSave({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        departmentId: Number(selectedDeptId),
+        year: Number(selectedYear),
+        semester: Number(selectedSemester),
+        section: section.trim(),
+        phone: phone.trim(),
+      });
+      setStatusMsg({ type: 'success', text: 'All personal details updated and saved in the database successfully!' });
+    } catch (err) {
+      setStatusMsg({ type: 'error', text: err.message || 'Failed to update personal details.' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="edit-profile-shell">
+      {/* Left Art Column - Distinct Midnight/Navy Theme */}
+      <section className="edit-profile-art">
+        <div>
+          <div className="brand-lockup brand-lockup-light">
+            <div className="brand-mark"><span>c</span></div>
+            <div><strong>campus<span>care</span></strong><small>STUDENT SERVICES</small></div>
+          </div>
+          <span className="art-index" style={{ display: 'inline-block', marginTop: 14, color: '#93c5fd', fontSize: 11, fontFamily: "'Space Grotesk', monospace" }}>
+            ACADEMIC PROFILE MANAGEMENT <span>•</span> LIVE RECORD
+          </span>
+          <h1 style={{ marginTop: 24, fontSize: 32, lineHeight: 1.15, fontWeight: 800 }}>
+            Keep your records<br />
+            <em>always updated.</em>
+          </h1>
+          <p style={{ color: '#cbd5e1', fontSize: 13.5, lineHeight: 1.6, maxWidth: 320, marginTop: 12 }}>
+            College progression moves fast every semester. Keep your branch, semester, section and contact details up-to-date so academic queries are always accurate.
+          </p>
+
+          <div className="edit-profile-card">
+            <div className="edit-profile-card-top">
+              <div className="avatar" style={{ width: 38, height: 38, background: '#1d4ed8', color: '#ffffff', fontSize: 13, fontWeight: 700 }}>
+                {fullName.split(' ').map((p) => p[0]).slice(0, 2).join('')}
+              </div>
+              <div>
+                <strong>{fullName || 'Student'}</strong>
+                <small>{user.studentId || user.loginId || 'STU-ID'}</small>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: "'Outfit', sans-serif" }}>
+              <div>Branch: <strong style={{ color: '#ffffff', display: 'inline' }}>{selectedDept?.name || user.department || 'Not selected'}</strong></div>
+              <div>Progress: <strong style={{ color: '#93c5fd', display: 'inline' }}>Year {selectedYear || user.year || '1'} • Sem {selectedSemester || user.semester || '1'} (Sec {section || user.section || 'A'})</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button
+            type="button"
+            className="button-quiet"
+            style={{ color: '#ffffff', background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', width: '100%', justifyContent: 'center' }}
+            onClick={onBack}
+          >
+            <ArrowLeft size={16} /> Back to Workspace
+          </button>
+          <button
+            type="button"
+            className="button-quiet"
+            style={{ color: '#fca5a5', background: 'rgba(239, 68, 68, 0.12)', borderColor: 'rgba(239, 68, 68, 0.25)', width: '100%', justifyContent: 'center' }}
+            onClick={onSignOut}
+          >
+            <LogOut size={16} /> Sign Out & Test Sign-in
+          </button>
+        </div>
+      </section>
+
+      {/* Right Form Area - Pre-filled Editable A-Z Details (NO Username/Password) */}
+      <section className="edit-profile-form-wrap">
+        <div>
+          <div className="edit-profile-header">
+            <div className="eyebrow" style={{ color: '#2563eb' }}>UPDATE STUDENT RECORD</div>
+            <h2>Edit your personal details</h2>
+            <p>Update your semester progression, academic branch, section and personal phone number.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="login-form registration-form" style={{ marginTop: 10 }}>
+            {/* Student ID (Permanent reference) and Full Name */}
+            <div className="registration-fields">
+              <label>
+                Student ID <span className="optional-label" style={{ background: '#f1f5f9', color: '#64748b' }}>PERMANENT</span>
+                <input
+                  value={user.studentId || user.loginId || ''}
+                  disabled
+                  readOnly
+                  style={{ background: '#f8fafc', color: '#64748b', cursor: 'not-allowed', fontFamily: "'Space Grotesk', monospace" }}
+                  title="Permanent student identifier assigned by college administration."
+                />
+              </label>
+              <label>
+                Full name
+                <input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  minLength={2}
+                  maxLength={160}
+                  placeholder="As recorded by your college"
+                  required
+                />
+              </label>
+            </div>
+
+            {/* College Email */}
+            <label>
+              College email
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                maxLength={255}
+                placeholder="you@college.edu"
+                required
+              />
+            </label>
+
+            {/* Department (All 169 departments searchable) & Year & Semester */}
+            <div className="registration-fields">
+              <label style={{ position: 'relative' }}>
+                Department (Branch)
+                <DepartmentSearchSelect
+                  departments={departments}
+                  value={selectedDeptId}
+                  onChange={setSelectedDeptId}
+                  disabled={departments.length === 0}
+                  loading={departmentsLoading}
+                />
+              </label>
+
+              <label style={{ position: 'relative' }}>
+                Year & Semester
+                <YearSelect
+                  value={selectedYear}
+                  semester={selectedSemester}
+                  onChangeYear={setSelectedYear}
+                  onChangeSemester={setSelectedSemester}
+                  department={selectedDept}
+                  disabled={!selectedDept}
+                />
+                {selectedYear && (
+                  <div className="sem-switcher-row">
+                    <span className="sem-switcher-label" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>SEMESTER:</span>
+                    <button
+                      type="button"
+                      className={`sem-toggle-btn ${selectedSemester === 1 ? 'active' : ''}`}
+                      onClick={() => setSelectedSemester(1)}
+                      title="Switch to 1st Semester"
+                      style={{ fontFamily: (YEAR_DETAILS[Number(selectedYear)]?.fontFamily) || "'Plus Jakarta Sans', sans-serif" }}
+                    >
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>✦</span> {getYearSuffix(Number(selectedYear))} Year 1st Sem
+                    </button>
+                    <button
+                      type="button"
+                      className={`sem-toggle-btn ${selectedSemester === 2 ? 'active' : ''}`}
+                      onClick={() => setSelectedSemester(2)}
+                      title="Switch to 2nd Semester"
+                      style={{ fontFamily: (YEAR_DETAILS[Number(selectedYear)]?.fontFamily) || "'Plus Jakarta Sans', sans-serif" }}
+                    >
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>✦</span> {getYearSuffix(Number(selectedYear))} Year 2nd Sem
+                    </button>
+                  </div>
+                )}
+              </label>
+            </div>
+
+            {/* Section & Phone */}
+            <div className="registration-fields">
+              <label>
+                Section
+                <input
+                  value={section}
+                  onChange={(e) => setSection(e.target.value)}
+                  maxLength={20}
+                  placeholder="e.g. A"
+                  required
+                />
+              </label>
+              <label>
+                Phone <span className="optional-label">OPTIONAL</span>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  maxLength={30}
+                  placeholder="Phone number"
+                />
+              </label>
+            </div>
+
+            {statusMsg.text && (
+              <div
+                className={statusMsg.type === 'error' ? 'login-error' : 'toast'}
+                style={{
+                  marginTop: 12,
+                  padding: '10px 14px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  background: statusMsg.type === 'error' ? '#fef2f2' : '#ecfdf5',
+                  color: statusMsg.type === 'error' ? '#b91c1c' : '#047857',
+                  border: `1px solid ${statusMsg.type === 'error' ? '#fecdd3' : '#a7f3d0'}`,
+                }}
+                role="status"
+              >
+                {statusMsg.text}
+              </div>
+            )}
+
+            {/* Bottom Actions */}
+            <div className="edit-profile-actions">
+              <button
+                type="button"
+                className="button-quiet"
+                onClick={onBack}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <ArrowLeft size={16} /> Back to Workspace
+              </button>
+
+              <button
+                type="submit"
+                className="button-primary"
+                disabled={saving || departments.length === 0}
+                style={{ padding: '12px 28px', fontSize: 14, fontWeight: 700 }}
+              >
+                <Check size={16} /> {saving ? 'Saving changes…' : 'Save personal details'}
+              </button>
+            </div>
+          </form>
+        </div>
       </section>
     </div>
   );

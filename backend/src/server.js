@@ -67,7 +67,7 @@ function allow(...roles) {
 }
 
 const userSelect = `SELECT u.id, u.login_id AS "loginId", u.email, u.full_name AS "fullName", u.role,
-  u.department_id AS "departmentId", d.name AS department, u.year, u.semester, u.section, u.designation
+  u.department_id AS "departmentId", d.name AS department, u.phone, u.year, u.semester, u.section, u.designation
   FROM users u LEFT JOIN departments d ON d.id = u.department_id`;
 
 app.get('/api/health', asyncRoute(async (_request, response) => {
@@ -127,6 +127,95 @@ app.get('/api/auth/me', authenticate, asyncRoute(async (request, response) => {
   const { rows } = await pool.query(`${userSelect} WHERE u.id = $1`, [request.user.userId]);
   if (!rows[0]) return response.status(401).json({ error: 'Account no longer exists.' });
   response.json({ user: rows[0] });
+}));
+
+app.patch('/api/auth/username', authenticate, asyncRoute(async (request, response) => {
+  const schema = z.object({
+    currentUsername: z.string().trim().min(1, 'Please enter your current username.'),
+    newUsername: z.string().trim().min(3, 'New username must be at least 3 characters.').max(80, 'New username cannot exceed 80 characters.').regex(/^[A-Za-z0-9-_.]+$/, 'Username can only contain letters, numbers, hyphens, and periods.'),
+  });
+  const parsed = schema.safeParse(request.body);
+  if (!parsed.success) {
+    return response.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid username format.' });
+  }
+  const { currentUsername, newUsername } = parsed.data;
+
+  const { rows: currentUserRows } = await queryWithRetry('SELECT id, login_id FROM users WHERE id = $1', [request.user.userId]);
+  if (!currentUserRows[0]) return response.status(404).json({ error: 'User account not found.' });
+
+  if (currentUserRows[0].login_id.toLowerCase() !== currentUsername.toLowerCase()) {
+    return response.status(400).json({ error: 'Current username does not match. Please verify your current username.' });
+  }
+
+  const { rows: existingRows } = await queryWithRetry('SELECT id FROM users WHERE LOWER(login_id) = LOWER($1) AND id != $2', [newUsername, request.user.userId]);
+  if (existingRows.length > 0) {
+    return response.status(409).json({ error: 'That username is already taken. Please choose another username.' });
+  }
+
+  await queryWithRetry('UPDATE users SET login_id = $1 WHERE id = $2', [newUsername, request.user.userId]);
+  const { rows: updatedRows } = await queryWithRetry(`${userSelect} WHERE u.id = $1`, [request.user.userId]);
+  response.json({ message: 'Username updated successfully. Use this new username for future sign-ins.', user: updatedRows[0] });
+}));
+
+app.patch('/api/auth/password', authenticate, asyncRoute(async (request, response) => {
+  const schema = z.object({
+    currentPassword: z.string().min(1, 'Please enter your current password.'),
+    newPassword: z.string().min(10, 'New password must be at least 10 characters.').max(128).regex(/(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])/, 'New password must contain uppercase, lowercase, and a number.'),
+  });
+  const parsed = schema.safeParse(request.body);
+  if (!parsed.success) {
+    return response.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid password.' });
+  }
+  const { currentPassword, newPassword } = parsed.data;
+
+  const { rows } = await queryWithRetry('SELECT id, password_hash FROM users WHERE id = $1', [request.user.userId]);
+  if (!rows[0]) return response.status(404).json({ error: 'User account not found.' });
+
+  const isMatch = await bcrypt.compare(currentPassword, rows[0].password_hash);
+  if (!isMatch) {
+    return response.status(400).json({ error: 'Current password is incorrect. Please check and try again.' });
+  }
+
+  const newHash = await bcrypt.hash(newPassword, 12);
+  await queryWithRetry('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, request.user.userId]);
+  response.json({ message: 'Password updated successfully. Use your new password next time you sign in.' });
+}));
+
+app.patch('/api/auth/profile', authenticate, asyncRoute(async (request, response) => {
+  const schema = z.object({
+    fullName: z.string().trim().min(2, 'Full name must have at least 2 characters.').max(160),
+    email: z.string().trim().email('Please provide a valid college email address.').max(255),
+    departmentId: z.coerce.number().int().positive('Please choose an academic department.'),
+    year: z.coerce.number().int().min(1).max(8, 'Year must be between 1 and 8.'),
+    semester: z.coerce.number().int().min(1).max(2).default(1),
+    section: z.string().trim().min(1, 'Please enter your section.').max(20),
+    phone: z.string().trim().max(30).optional().default(''),
+  });
+  const parsed = schema.safeParse(request.body);
+  if (!parsed.success) {
+    return response.status(400).json({ error: parsed.error.issues[0]?.message || 'Check personal details form.' });
+  }
+  const data = parsed.data;
+
+  const { rows: emailRows } = await queryWithRetry('SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id != $2', [data.email, request.user.userId]);
+  if (emailRows.length > 0) {
+    return response.status(409).json({ error: 'That email is already registered to another account.' });
+  }
+
+  const { rows: deptRows } = await queryWithRetry("SELECT id FROM departments WHERE id = $1 AND status = 'Active'", [data.departmentId]);
+  if (!deptRows[0]) {
+    return response.status(400).json({ error: 'Selected department is not active or valid.' });
+  }
+
+  await queryWithRetry(
+    `UPDATE users
+     SET full_name = $1, email = $2, department_id = $3, year = $4, semester = $5, section = $6, phone = NULLIF($7, '')
+     WHERE id = $8`,
+    [data.fullName, data.email, data.departmentId, data.year, data.semester, data.section, data.phone, request.user.userId],
+  );
+
+  const { rows: updatedRows } = await queryWithRetry(`${userSelect} WHERE u.id = $1`, [request.user.userId]);
+  response.json({ message: 'Personal details updated successfully.', user: updatedRows[0] });
 }));
 
 app.get('/api/categories', authenticate, asyncRoute(async (_request, response) => {
