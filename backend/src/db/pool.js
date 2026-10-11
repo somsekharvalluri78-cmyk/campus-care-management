@@ -1,5 +1,10 @@
+import dns from 'node:dns';
 import pg from 'pg';
 import { config } from '../config.js';
+
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {}
 
 const { Pool } = pg;
 
@@ -10,5 +15,24 @@ export const pool = new Pool({
   ssl: requiresSsl ? { rejectUnauthorized: false } : undefined,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000,
 });
+
+export async function queryWithRetry(sql, params = [], retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await pool.query(sql, params);
+    } catch (err) {
+      const isTransient = err.code === 'EAI_AGAIN' ||
+        err.code === 'ECONNRESET' ||
+        err.code === 'ETIMEDOUT' ||
+        err.message?.includes('timeout') ||
+        err.message?.includes('getaddrinfo');
+      if (isTransient && attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 250));
+        continue;
+      }
+      throw err;
+    }
+  }
+}

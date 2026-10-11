@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { config } from './config.js';
 import { makeComplaintId } from './complaint-id.js';
 import { studentRegistrationSchema } from './registration.js';
-import { pool } from './db/pool.js';
+import { pool, queryWithRetry } from './db/pool.js';
 
 const app = express();
 app.use(helmet({
@@ -75,8 +75,14 @@ app.get('/api/health', asyncRoute(async (_request, response) => {
   response.json({ status: 'ok' });
 }));
 
+let departmentsCache = null;
+
 app.get('/api/departments', asyncRoute(async (_request, response) => {
-  const { rows } = await pool.query("SELECT id, code, name, COALESCE(category, 'Engineering & Technology') AS category FROM departments WHERE status = 'Active' ORDER BY category, name");
+  if (departmentsCache && departmentsCache.length > 0) {
+    return response.json({ departments: departmentsCache });
+  }
+  const { rows } = await queryWithRetry("SELECT id, code, name, COALESCE(category, 'Engineering & Technology') AS category FROM departments WHERE status = 'Active' ORDER BY category, name");
+  departmentsCache = rows;
   response.json({ departments: rows });
 }));
 
@@ -108,9 +114,9 @@ app.post('/api/auth/login', authLimiter, asyncRoute(async (request, response) =>
   const parsed = z.object({ identifier: z.string().trim().min(1), password: z.string().min(1) }).safeParse(request.body);
   if (!parsed.success) return response.status(400).json({ error: 'Enter your student/staff ID or email and password.' });
   const { identifier, password } = parsed.data;
-  const { rows } = await pool.query(`${userSelect} WHERE (LOWER(u.email) = LOWER($1) OR LOWER(u.login_id) = LOWER($1)) AND u.status = 'Active'`, [identifier]);
+  const { rows } = await queryWithRetry(`${userSelect} WHERE (LOWER(u.email) = LOWER($1) OR LOWER(u.login_id) = LOWER($1)) AND u.status = 'Active'`, [identifier]);
   const user = rows[0];
-  if (!user || !(await bcrypt.compare(password, (await pool.query('SELECT password_hash FROM users WHERE id = $1', [user.id])).rows[0].password_hash))) {
+  if (!user || !(await bcrypt.compare(password, (await queryWithRetry('SELECT password_hash FROM users WHERE id = $1', [user.id])).rows[0].password_hash))) {
     return response.status(401).json({ error: 'The ID/email or password is incorrect.' });
   }
   const token = jwt.sign({ userId: user.id, role: user.role }, config.jwtSecret, { expiresIn: '8h' });

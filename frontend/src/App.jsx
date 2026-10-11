@@ -5,7 +5,7 @@ import {
   Search, Settings2, ShieldCheck, Sparkles, UserRound, Users, X,
 } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:4000/api' : '/api');
+const API = import.meta.env.VITE_API_URL || '/api';
 const DEMO_PASSWORD = 'CampusDemo2026!';
 const STATUS_OPTIONS = ['Submitted', 'Under Review', 'Assigned', 'In Progress', 'Waiting for Student', 'Resolved', 'Closed', 'Rejected'];
 const DEMO_ACCOUNTS = [
