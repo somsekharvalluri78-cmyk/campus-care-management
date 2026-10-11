@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
-  Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, BookOpen, Check, ChevronDown,
-  CircleHelp, ClipboardList, Clock3, Download, FilePlus2, Filter, LayoutDashboard, LogOut, Menu,
-  Search, Settings2, ShieldCheck, Sparkles, UserRound, Users, X,
+  Activity, AlertTriangle, Archive, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, BookOpen, Check, ChevronDown,
+  CircleHelp, ClipboardList, Clock3, Download, Eye, FilePlus2, Filter, LayoutDashboard, Lock, LogOut, Menu,
+  RotateCcw, Search, Settings2, ShieldCheck, Sparkles, Trash2, UserRound, Users, X,
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || '/api';
@@ -51,6 +51,7 @@ function App() {
   const [activeView, setActiveView] = useState('overview');
   const [stats, setStats] = useState(null);
   const [complaints, setComplaints] = useState([]);
+  const [allSubmittedComplaints, setAllSubmittedComplaints] = useState([]);
   const [categories, setCategories] = useState([]);
   const [staff, setStaff] = useState([]);
   const [notifications, setNotifications] = useState([]);
@@ -66,6 +67,9 @@ function App() {
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState(import.meta.env.DEV ? DEMO_PASSWORD : '');
   const [loginPending, setLoginPending] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [retractTarget, setRetractTarget] = useState(null);
+  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState(null);
 
   async function refreshData(authToken = token) {
     if (!authToken) return;
@@ -83,6 +87,14 @@ function App() {
       const staffData = await request('/staff', authToken);
       setStaff(staffData.staff);
     }
+    if (user?.role === 'student') {
+      try {
+        const vaultData = await request('/complaints?scope=all', authToken);
+        setAllSubmittedComplaints(vaultData.complaints || []);
+      } catch (err) {
+        console.warn('Personal vault refresh notice:', err);
+      }
+    }
   }
 
   useEffect(() => {
@@ -95,13 +107,22 @@ function App() {
       .then(async (profile) => {
         if (!alive) return;
         setUser(profile.user);
-        const [complaintData, categoryData, notificationData] = await Promise.all([
-          request('/complaints', token), request('/categories', token), request('/notifications', token),
-        ]);
+        const fetches = [
+          request('/complaints', token),
+          request('/categories', token),
+          request('/notifications', token),
+        ];
+        if (profile.user.role === 'student') {
+          fetches.push(request('/complaints?scope=all', token).catch(() => ({ complaints: [] })));
+        }
+        const [complaintData, categoryData, notificationData, vaultData] = await Promise.all(fetches);
         if (!alive) return;
         setComplaints(complaintData.complaints);
         setCategories(categoryData.categories);
         setNotifications(notificationData.notifications);
+        if (vaultData?.complaints) {
+          setAllSubmittedComplaints(vaultData.complaints);
+        }
         setStats((await request('/dashboard', token)).stats);
         if (profile.user.role === 'admin') setStaff((await request('/staff', token)).staff);
       })
@@ -157,6 +178,57 @@ function App() {
     setActiveView('overview');
     setStats(null);
     setComplaints([]);
+    setAllSubmittedComplaints([]);
+    setContextMenu(null);
+    setRetractTarget(null);
+    setPermanentDeleteTarget(null);
+  }
+
+  async function handleRetractComplaint(complaint) {
+    if (!complaint?.complaintId) return;
+    try {
+      await request(`/complaints/${complaint.complaintId}`, token, { method: 'DELETE' });
+      setNotice(`Complaint ${complaint.complaintId} retracted from desk. Safely saved in your Personal Storage.`);
+      setRetractTarget(null);
+      setContextMenu(null);
+      if (selected?.complaintId === complaint.complaintId) {
+        setSelected((prev) => prev ? { ...prev, isDeleted: true } : null);
+      }
+      await refreshData();
+    } catch (err) {
+      setError(err.message || 'Failed to retract complaint');
+    }
+  }
+
+  async function handleRestoreComplaint(complaint) {
+    if (!complaint?.complaintId) return;
+    try {
+      await request(`/complaints/${complaint.complaintId}/restore`, token, { method: 'POST' });
+      setNotice(`Complaint ${complaint.complaintId} restored back to the active service desk.`);
+      setContextMenu(null);
+      if (selected?.complaintId === complaint.complaintId) {
+        setSelected((prev) => prev ? { ...prev, isDeleted: false } : null);
+      }
+      await refreshData();
+    } catch (err) {
+      setError(err.message || 'Failed to restore complaint');
+    }
+  }
+
+  async function handlePermanentDeleteComplaint(complaint) {
+    if (!complaint?.complaintId) return;
+    try {
+      await request(`/complaints/${complaint.complaintId}/permanent`, token, { method: 'DELETE' });
+      setNotice(`Complaint ${complaint.complaintId} permanently deleted. Record completely erased.`);
+      setPermanentDeleteTarget(null);
+      setContextMenu(null);
+      if (selected?.complaintId === complaint.complaintId) {
+        setSelected(null);
+      }
+      await refreshData();
+    } catch (err) {
+      setError(err.message || 'Failed to permanently delete complaint');
+    }
   }
 
   async function openComplaint(complaint) {
@@ -296,7 +368,25 @@ function App() {
 
         <div className="page-content">
           {(error || notice) && <div className={`toast ${error ? 'toast-error' : ''}`} role="status"><span>{error || notice}</span><button onClick={() => { setError(''); setNotice(''); }} aria-label="Dismiss"><X size={16} /></button></div>}
-          {activeView === 'overview' && <Overview user={user} stats={stats} complaints={complaints} onNew={() => setActiveView('submit')} onView={() => setActiveView('complaints')} onOpen={openComplaint} />}
+          {activeView === 'overview' && (
+            <Overview
+              user={user}
+              stats={stats}
+              complaints={complaints}
+              allSubmittedComplaints={allSubmittedComplaints}
+              onNew={() => setActiveView('submit')}
+              onView={() => setActiveView('complaints')}
+              onOpen={openComplaint}
+              onContextMenu={(e, c) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu({ x: e.clientX, y: e.clientY, complaint: c });
+              }}
+              onRetract={(c) => setRetractTarget(c)}
+              onRestore={handleRestoreComplaint}
+              onPermanentDelete={(c) => setPermanentDeleteTarget(c)}
+            />
+          )}
           {activeView === 'complaints' && <section className="content-section">
             <div className="page-heading"><div><div className="eyebrow">{isAdmin ? 'SERVICE DESK' : isStaff ? 'YOUR WORK QUEUE' : 'YOUR RECORD'}</div><h1>{isAdmin ? 'All complaints' : isStaff ? 'Assigned cases' : 'My complaints'}<span className="heading-count">{complaints.length}</span></h1><p>Review cases, follow progress and keep every conversation in one place.</p></div>
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -304,13 +394,182 @@ function App() {
                 {!isStaff && <button className="button-primary" onClick={() => setActiveView('submit')}><FilePlus2 size={16} /> New complaint</button>}
               </div>
             </div>
-            <ComplaintTable rows={visibleComplaints} user={user} search={search} statusFilter={statusFilter} onSearch={setSearch} onFilter={setStatusFilter} onOpen={openComplaint} onStatus={updateStatus} onAssign={assignComplaint} staff={staff} />
+            <ComplaintTable
+              rows={visibleComplaints}
+              user={user}
+              search={search}
+              statusFilter={statusFilter}
+              onSearch={setSearch}
+              onFilter={setStatusFilter}
+              onOpen={openComplaint}
+              onStatus={updateStatus}
+              onAssign={assignComplaint}
+              staff={staff}
+              onContextMenu={(e, c) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu({ x: e.clientX, y: e.clientY, complaint: c });
+              }}
+              onRetract={(c) => setRetractTarget(c)}
+              onRestore={handleRestoreComplaint}
+              onPermanentDelete={(c) => setPermanentDeleteTarget(c)}
+            />
           </section>}
           {activeView === 'submit' && <SubmitPage user={user} categories={categories} onSubmit={submitComplaint} onCancel={() => setActiveView('overview')} />}
         </div>
         <footer className="page-footer"><span>Campus Care <span className="footer-dot">/</span> Student services portal</span><span>Private and secure <ShieldCheck size={13} /></span></footer>
       </main>
-      {selected && <ComplaintDialog complaint={selected} history={history} user={user} staff={staff} onClose={() => setSelected(null)} onStatus={updateStatus} onAssign={assignComplaint} />}
+
+      {/* Floating Details Dialog */}
+      {selected && (
+        <ComplaintDialog
+          complaint={selected}
+          history={history}
+          user={user}
+          staff={staff}
+          onClose={() => setSelected(null)}
+          onStatus={updateStatus}
+          onAssign={assignComplaint}
+          onRetract={(c) => setRetractTarget(c)}
+          onRestore={handleRestoreComplaint}
+          onPermanentDelete={(c) => setPermanentDeleteTarget(c)}
+        />
+      )}
+
+      {/* Right-Click Context Menu */}
+      {contextMenu && (
+        <>
+          <div
+            className="context-menu-backdrop"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
+          />
+          <div
+            className="complaint-context-menu"
+            style={{
+              top: Math.min(contextMenu.y, (window.innerHeight || 800) - 180),
+              left: Math.min(contextMenu.x, (window.innerWidth || 1200) - 260),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="context-menu-header">
+              <div className="context-menu-id">{contextMenu.complaint.complaintId}</div>
+              <div className="context-menu-title">{contextMenu.complaint.title}</div>
+            </div>
+            <button
+              className="context-menu-item"
+              onClick={() => {
+                const c = contextMenu.complaint;
+                setContextMenu(null);
+                openComplaint(c);
+              }}
+            >
+              <Eye size={14} />
+              <span>View Details</span>
+            </button>
+            {!contextMenu.complaint.isDeleted ? (
+              <button
+                className="context-menu-item danger"
+                onClick={() => {
+                  const c = contextMenu.complaint;
+                  setContextMenu(null);
+                  setRetractTarget(c);
+                }}
+              >
+                <Trash2 size={14} />
+                <span>Delete from Desk (Temporary)</span>
+                <span className="context-menu-hint">Personal</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  className="context-menu-item restore"
+                  onClick={() => {
+                    const c = contextMenu.complaint;
+                    setContextMenu(null);
+                    handleRestoreComplaint(c);
+                  }}
+                >
+                  <RotateCcw size={14} />
+                  <span>Restore to Desk</span>
+                </button>
+                <button
+                  className="context-menu-item perm-danger"
+                  onClick={() => {
+                    const c = contextMenu.complaint;
+                    setContextMenu(null);
+                    setPermanentDeleteTarget(c);
+                  }}
+                >
+                  <Trash2 size={14} />
+                  <span>Permanently Delete</span>
+                  <span className="context-menu-hint">Erase</span>
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Temporary Retract Confirmation Modal */}
+      {retractTarget && (
+        <div className="confirm-modal-backdrop" onClick={() => setRetractTarget(null)}>
+          <div className="confirm-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-modal-top">
+              <div className="confirm-icon-wrap confirm-icon-amber">
+                <Archive size={22} />
+              </div>
+              <div className="confirm-modal-copy">
+                <h3>Delete from Active Desk?</h3>
+                <p>
+                  This complaint will be removed from the active desk so that <strong>administrators and staff cannot see it</strong>.
+                </p>
+                <p style={{ marginTop: '6px' }}>
+                  It will be stored in your <strong>Personal Storage</strong> (visible only to you under Overview), where you can restore it anytime or permanently delete it.
+                </p>
+                <div className="confirm-modal-ref">{retractTarget.complaintId}: {retractTarget.title}</div>
+              </div>
+            </div>
+            <div className="confirm-modal-actions">
+              <button className="button-quiet" onClick={() => setRetractTarget(null)}>Cancel</button>
+              <button className="button-danger" style={{ background: '#e11d48', borderColor: '#be123c' }} onClick={() => handleRetractComplaint(retractTarget)}>
+                <Trash2 size={14} /> Yes, Delete from Desk
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permanent Delete Confirmation Modal */}
+      {permanentDeleteTarget && (
+        <div className="confirm-modal-backdrop" onClick={() => setPermanentDeleteTarget(null)}>
+          <div className="confirm-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-modal-top">
+              <div className="confirm-icon-wrap confirm-icon-red">
+                <AlertTriangle size={22} />
+              </div>
+              <div className="confirm-modal-copy">
+                <h3 style={{ color: '#dc2626' }}>Permanently Delete Complaint?</h3>
+                <p style={{ color: '#b91c1c', fontWeight: 600 }}>
+                  This action is 100% irreversible and permanent!
+                </p>
+                <p style={{ marginTop: '6px' }}>
+                  The record and all audit events will be completely wiped from the database. It will <strong>NOT be shown anywhere</strong> — not on the desk, not in personal storage, and never to admins.
+                </p>
+                <div className="confirm-modal-ref" style={{ color: '#dc2626', background: '#fee2e2' }}>
+                  {permanentDeleteTarget.complaintId}: {permanentDeleteTarget.title}
+                </div>
+              </div>
+            </div>
+            <div className="confirm-modal-actions">
+              <button className="button-quiet" onClick={() => setPermanentDeleteTarget(null)}>Keep Complaint</button>
+              <button className="button-danger" onClick={() => handlePermanentDeleteComplaint(permanentDeleteTarget)}>
+                <Trash2 size={14} /> Permanently Delete Forever
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1543,9 +1802,22 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
   </main>;
 }
 
-function Overview({ user, stats, complaints, onNew, onView, onOpen }) {
+function Overview({
+  user,
+  stats,
+  complaints,
+  allSubmittedComplaints = [],
+  onNew,
+  onView,
+  onOpen,
+  onContextMenu,
+  onRetract,
+  onRestore,
+  onPermanentDelete,
+}) {
   const isAdmin = user.role === 'admin';
   const isStaff = user.role === 'staff';
+  const isStudent = user.role === 'student';
   const cards = isAdmin
     ? [{ label: 'Total students', value: stats?.peopleCount ?? '—', icon: Users, tone: 'sage', change: 'ACTIVE ACCOUNTS' }, { label: 'Total complaints', value: stats?.total ?? 0, icon: ClipboardList, tone: 'blue', change: 'ALL TIME' }, { label: 'Needs attention', value: stats?.pending ?? 0, icon: Clock3, tone: 'amber', change: 'PENDING REVIEW' }, { label: 'Critical cases', value: stats?.critical ?? 0, icon: Activity, tone: 'rose', change: 'HIGH PRIORITY' }]
     : isStaff
@@ -1553,27 +1825,439 @@ function Overview({ user, stats, complaints, onNew, onView, onOpen }) {
       : [{ label: 'All complaints', value: stats?.total ?? 0, icon: ClipboardList, tone: 'sage', change: 'SUBMITTED BY YOU' }, { label: 'Under review', value: stats?.pending ?? 0, icon: Clock3, tone: 'amber', change: 'WE’RE ON IT' }, { label: 'In progress', value: stats?.in_progress ?? 0, icon: Activity, tone: 'blue', change: 'BEING HANDLED' }, { label: 'Resolved', value: (stats?.resolved ?? 0) + (stats?.closed ?? 0), icon: Check, tone: 'mint', change: 'COMPLETED' }];
   const firstName = user.fullName.split(' ')[0];
   const openCount = stats?.pending ?? 0;
-  return <section className="content-section overview-section">
-    <div className="welcome-banner"><div><div className="eyebrow eyebrow-light"><span /> YOUR CAMPUS, IN GOOD HANDS</div><h1>{isAdmin ? 'Good morning' : isStaff ? 'Good to see you' : 'Hello'}, {firstName}<span className="wave">.</span></h1><p>{isAdmin ? 'Here’s what’s happening across your service desk today.' : isStaff ? 'Here’s a clear view of the cases on your desk.' : 'Here’s the latest on what you’ve shared with us.'}</p></div><div className="welcome-side"><div className="welcome-side-icon"><Sparkles size={19} /></div><span>{openCount === 0 ? 'All caught up' : `${openCount} ${openCount === 1 ? 'item' : 'items'} need attention`}</span><div className="welcome-progress"><i style={{ width: `${Math.max(18, 100 - openCount * 9)}%` }} /></div><small>YOUR SERVICE SNAPSHOT</small></div><div className="banner-doodle doodle-a" /><div className="banner-doodle doodle-b" /></div>
-    <div className="stats-grid">{cards.map(({ label, value, icon: Icon, tone, change }, index) => <article className={`stat-card stat-${tone}`} key={label}><div className="stat-card-top"><span>{label}</span><span className="stat-icon"><Icon size={17} /></span></div><div className="stat-number">{value}</div><div className="stat-foot"><span className="stat-trend">{index === 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{change}</span><span className="stat-period">2026</span></div></article>)}</div>
-    <div className="section-heading-row"><div><div className="eyebrow">THE LATEST</div><h2>Recent activity</h2></div><button className="text-button view-all" onClick={onView}>View all <ArrowRight size={15} /></button></div>
-    <ComplaintTable rows={complaints.slice(0, 5)} user={user} compact onOpen={onOpen} />
-    {!isStaff && <button className="new-complaint-strip" onClick={onNew}><span className="strip-icon"><FilePlus2 size={18} /></span><span><strong>Something on your mind?</strong><small>Share a concern with the right people at Northfield.</small></span><span className="strip-action">Submit a complaint <ArrowRight size={15} /></span></button>}
-  </section>;
+
+  const [vaultTab, setVaultTab] = useState('all');
+  const [vaultSearch, setVaultSearch] = useState('');
+
+  const activeVaultCount = allSubmittedComplaints.filter((c) => !c.isDeleted).length;
+  const retractedVaultCount = allSubmittedComplaints.filter((c) => c.isDeleted).length;
+
+  const displayedVaultComplaints = allSubmittedComplaints.filter((item) => {
+    if (vaultTab === 'active' && item.isDeleted) return false;
+    if (vaultTab === 'retracted' && !item.isDeleted) return false;
+    if (vaultSearch.trim()) {
+      const q = vaultSearch.toLowerCase();
+      const match = `${item.complaintId} ${item.title} ${item.category} ${item.department || ''} ${item.status}`.toLowerCase();
+      return match.includes(q);
+    }
+    return true;
+  });
+
+  return (
+    <section className="content-section overview-section">
+      <div className="welcome-banner">
+        <div>
+          <div className="eyebrow eyebrow-light"><span /> YOUR CAMPUS, IN GOOD HANDS</div>
+          <h1>{isAdmin ? 'Good morning' : isStaff ? 'Good to see you' : 'Hello'}, {firstName}<span className="wave">.</span></h1>
+          <p>{isAdmin ? 'Here’s what’s happening across your service desk today.' : isStaff ? 'Here’s a clear view of the cases on your desk.' : 'Here’s the latest on what you’ve shared with us.'}</p>
+        </div>
+        <div className="welcome-side">
+          <div className="welcome-side-icon"><Sparkles size={19} /></div>
+          <span>{openCount === 0 ? 'All caught up' : `${openCount} ${openCount === 1 ? 'item' : 'items'} need attention`}</span>
+          <div className="welcome-progress"><i style={{ width: `${Math.max(18, 100 - openCount * 9)}%` }} /></div>
+          <small>YOUR SERVICE SNAPSHOT</small>
+        </div>
+        <div className="banner-doodle doodle-a" />
+        <div className="banner-doodle doodle-b" />
+      </div>
+
+      <div className="stats-grid">
+        {cards.map(({ label, value, icon: Icon, tone, change }, index) => (
+          <article className={`stat-card stat-${tone}`} key={label}>
+            <div className="stat-card-top"><span>{label}</span><span className="stat-icon"><Icon size={17} /></span></div>
+            <div className="stat-number">{value}</div>
+            <div className="stat-foot">
+              <span className="stat-trend">{index === 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{change}</span>
+              <span className="stat-period">2026</span>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {/* Recent activity */}
+      <div className="section-heading-row">
+        <div>
+          <div className="eyebrow">THE LATEST</div>
+          <h2>Recent activity</h2>
+        </div>
+        <button className="text-button view-all" onClick={onView}>View all <ArrowRight size={15} /></button>
+      </div>
+      <ComplaintTable
+        rows={complaints.slice(0, 5)}
+        user={user}
+        compact
+        onOpen={onOpen}
+        onContextMenu={onContextMenu}
+        onRetract={onRetract}
+        onRestore={onRestore}
+        onPermanentDelete={onPermanentDelete}
+      />
+
+      {/* STUDENT PERSONAL STORAGE VAULT */}
+      {isStudent && (
+        <article className="personal-vault-card">
+          <header className="vault-header-strip">
+            <div className="vault-header-title">
+              <div className="vault-icon-badge">
+                <Lock size={17} />
+              </div>
+              <div className="vault-title-text">
+                <h3>
+                  Personal Storage • All Submitted Complaints
+                  <span className="tag" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', fontSize: '11px', padding: '1px 8px', borderRadius: '4px', fontWeight: 700 }}>
+                    {allSubmittedComplaints.length} Total
+                  </span>
+                </h3>
+                <p>
+                  Your private personal locker. Deleted complaints are saved here safely and cannot be viewed by college administrators or staff.
+                </p>
+              </div>
+            </div>
+            <span className="vault-privacy-chip">
+              <ShieldCheck size={13} /> Visible Only To You
+            </span>
+          </header>
+
+          <div className="vault-toolbar">
+            <div className="vault-tabs">
+              <button
+                type="button"
+                className={`vault-tab-btn ${vaultTab === 'all' ? 'active' : ''}`}
+                onClick={() => setVaultTab('all')}
+              >
+                All Records ({allSubmittedComplaints.length})
+              </button>
+              <button
+                type="button"
+                className={`vault-tab-btn ${vaultTab === 'active' ? 'active' : ''}`}
+                onClick={() => setVaultTab('active')}
+              >
+                Active on Desk ({activeVaultCount})
+              </button>
+              <button
+                type="button"
+                className={`vault-tab-btn ${vaultTab === 'retracted' ? 'active' : ''}`}
+                onClick={() => setVaultTab('retracted')}
+              >
+                Retracted in Vault ({retractedVaultCount})
+              </button>
+            </div>
+            <div className="table-search" style={{ maxWidth: '240px', margin: 0 }}>
+              <Search size={14} />
+              <input
+                aria-label="Search personal storage"
+                placeholder="Search personal storage…"
+                value={vaultSearch}
+                onChange={(e) => setVaultSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {displayedVaultComplaints.length ? (
+            <div className="table-overflow">
+              <table>
+                <thead>
+                  <tr>
+                    <th>REFERENCE</th>
+                    <th>COMPLAINT</th>
+                    <th>STORAGE STATUS</th>
+                    <th>PRIORITY</th>
+                    <th>CASE STATUS</th>
+                    <th>UPDATED</th>
+                    <th>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedVaultComplaints.map((row) => (
+                    <tr
+                      key={row.complaintId}
+                      onClick={() => onOpen(row)}
+                      onContextMenu={(e) => onContextMenu?.(e, row)}
+                      tabIndex="0"
+                      onKeyDown={(event) => event.key === 'Enter' && onOpen(row)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td><span className="case-id">{row.complaintId}</span></td>
+                      <td>
+                        <div className="case-title">{row.title}</div>
+                        <div className="case-meta">
+                          {row.category}
+                          <span>·</span>
+                          {row.department && (() => {
+                            const dStyle = getDeptStyle({ name: row.department });
+                            return <span style={{ color: dStyle.accent, fontWeight: 700 }}>{row.department}</span>;
+                          })()}
+                        </div>
+                      </td>
+                      <td>
+                        {row.isDeleted ? (
+                          <span className="storage-badge storage-badge-retracted" title="Hidden from admin desk · Stored in personal vault">
+                            <Archive size={10} /> RETRACTED IN VAULT
+                          </span>
+                        ) : (
+                          <span className="storage-badge storage-badge-active" title="Visible on active college desk">
+                            <Check size={10} /> ACTIVE ON DESK
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`priority priority-${row.priority.toLowerCase()}`}>
+                          <i />{row.priority}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={statusClass(row.status)}>
+                          <i />{row.status}
+                        </span>
+                      </td>
+                      <td className="updated-cell">{shortDate(row.updatedAt)}</td>
+                      <td>
+                        <div className="row-actions-cell" onClick={(e) => e.stopPropagation()}>
+                          {!row.isDeleted ? (
+                            <button
+                              type="button"
+                              className="row-action-btn row-retract-btn"
+                              title="Delete from Desk (Temporary · Stored in Vault)"
+                              onClick={(e) => { e.stopPropagation(); onRetract?.(row); }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                className="row-action-btn row-restore-btn"
+                                title="Restore to Active Desk"
+                                onClick={(e) => { e.stopPropagation(); onRestore?.(row); }}
+                              >
+                                <RotateCcw size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                className="row-action-btn row-perm-delete-btn"
+                                title="Permanently Delete Forever"
+                                onClick={(e) => { e.stopPropagation(); onPermanentDelete?.(row); }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className="row-action-btn"
+                            title="Open complaint details"
+                            onClick={(e) => { e.stopPropagation(); onOpen(row); }}
+                          >
+                            <ArrowUpRight size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-state" style={{ padding: '28px 16px' }}>
+              <div className="empty-icon"><Lock size={18} /></div>
+              <strong>No complaints found in this personal vault view</strong>
+              <p>
+                {vaultTab === 'retracted'
+                  ? 'You have no retracted complaints. If you delete a complaint temporarily, it will be kept safe here.'
+                  : 'Submitted complaints will be safely cataloged here for your personal record.'}
+              </p>
+            </div>
+          )}
+
+          <div className="vault-hint" style={{ padding: '9px 16px', background: '#fafafa', borderTop: '1px solid #f1f5f9' }}>
+            <Sparkles size={13} />
+            Tip: <strong>Right-click any complaint row</strong> to open the quick action menu. Temporarily deleted complaints are kept safe here and never shown to college admins.
+          </div>
+        </article>
+      )}
+
+      {!isStaff && (
+        <button className="new-complaint-strip" onClick={onNew}>
+          <span className="strip-icon"><FilePlus2 size={18} /></span>
+          <span>
+            <strong>Something on your mind?</strong>
+            <small>Share a concern with the right people at Northfield.</small>
+          </span>
+          <span className="strip-action">Submit a complaint <ArrowRight size={15} /></span>
+        </button>
+      )}
+    </section>
+  );
 }
 
-function ComplaintTable({ rows, user, compact = false, search = '', statusFilter = 'All statuses', onSearch, onFilter, onOpen, onStatus, onAssign, staff = [] }) {
+function ComplaintTable({
+  rows,
+  user,
+  compact = false,
+  search = '',
+  statusFilter = 'All statuses',
+  onSearch,
+  onFilter,
+  onOpen,
+  onStatus,
+  onAssign,
+  staff = [],
+  onContextMenu,
+  onRetract,
+  onRestore,
+  onPermanentDelete,
+}) {
   const admin = user.role === 'admin';
   const staffUser = user.role === 'staff';
-  return <div className={`table-shell ${compact ? 'table-compact' : ''}`}>
-    {!compact && <div className="table-toolbar"><div className="table-search"><Search size={16} /><input aria-label="Search complaints" placeholder="Search by ID, title or student" value={search} onChange={(event) => onSearch(event.target.value)} /></div><label className="filter-select"><Filter size={15} /><select aria-label="Filter by status" value={statusFilter} onChange={(event) => onFilter(event.target.value)}><option>All statuses</option>{STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}</select><ChevronDown size={14} /></label></div>}
-    {rows.length ? <div className="table-overflow"><table><thead><tr><th>REFERENCE</th><th>COMPLAINT</th>{admin && <th>STUDENT</th>}<th>PRIORITY</th><th>STATUS</th><th>UPDATED</th><th><span className="sr-only">Open complaint</span></th></tr></thead><tbody>{rows.map((row) => <tr key={row.complaintId} onClick={() => onOpen(row)} tabIndex="0" onKeyDown={(event) => event.key === 'Enter' && onOpen(row)}>
-      <td><span className="case-id">{row.complaintId}</span></td><td><div className="case-title">{row.title}</div><div className="case-meta">{row.category}<span>·</span>{row.department && (() => { const dStyle = getDeptStyle({ name: row.department }); return <span style={{ color: dStyle.accent, fontWeight: 700 }}>{row.department}</span>; })()}</div></td>{admin && <td><div className="student-cell">{row.studentName}<small>{row.studentLoginId}</small></div></td>}
-      <td><span className={`priority priority-${row.priority.toLowerCase()}`}><i />{row.priority}</span></td><td><span className={statusClass(row.status)}><i />{row.status}</span></td><td className="updated-cell">{compact ? timeAgo(row.updatedAt) : shortDate(row.updatedAt)}</td>
-      <td><button className="row-open" aria-label={`Open ${row.complaintId}`} onClick={(event) => { event.stopPropagation(); onOpen(row); }}><ArrowUpRight size={16} /></button></td>
-    </tr>)}</tbody></table></div> : <div className="empty-state"><div className="empty-icon"><ClipboardList size={21} /></div><strong>{search ? 'No matching complaints' : 'No complaints to show'}</strong><p>{search ? 'Try another keyword or clear the status filter.' : staffUser ? 'New cases assigned to you will appear here.' : 'When you submit a complaint, it will appear here.'}</p></div>}
-    {rows.length > 0 && (admin || staffUser) && !compact && <div className="table-footer"><span>Showing {rows.length} {rows.length === 1 ? 'case' : 'cases'}</span><span>Updated just now <span className="live-dot" /></span></div>}
-  </div>;
+  const isStudent = user.role === 'student';
+
+  return (
+    <div className={`table-shell ${compact ? 'table-compact' : ''}`}>
+      {!compact && (
+        <div className="table-toolbar">
+          <div className="table-search">
+            <Search size={16} />
+            <input
+              aria-label="Search complaints"
+              placeholder="Search by ID, title or student"
+              value={search}
+              onChange={(event) => onSearch(event.target.value)}
+            />
+          </div>
+          <label className="filter-select">
+            <Filter size={15} />
+            <select aria-label="Filter by status" value={statusFilter} onChange={(event) => onFilter(event.target.value)}>
+              <option>All statuses</option>
+              {STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
+            </select>
+            <ChevronDown size={14} />
+          </label>
+        </div>
+      )}
+      {rows.length ? (
+        <div className="table-overflow">
+          <table>
+            <thead>
+              <tr>
+                <th>REFERENCE</th>
+                <th>COMPLAINT</th>
+                {admin && <th>STUDENT</th>}
+                <th>PRIORITY</th>
+                <th>STATUS</th>
+                <th>UPDATED</th>
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row.complaintId}
+                  onClick={() => onOpen(row)}
+                  onContextMenu={(e) => onContextMenu?.(e, row)}
+                  tabIndex="0"
+                  onKeyDown={(event) => event.key === 'Enter' && onOpen(row)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td><span className="case-id">{row.complaintId}</span></td>
+                  <td>
+                    <div className="case-title">{row.title}</div>
+                    <div className="case-meta">
+                      {row.category}
+                      <span>·</span>
+                      {row.department && (() => {
+                        const dStyle = getDeptStyle({ name: row.department });
+                        return <span style={{ color: dStyle.accent, fontWeight: 700 }}>{row.department}</span>;
+                      })()}
+                    </div>
+                  </td>
+                  {admin && (
+                    <td>
+                      <div className="student-cell">
+                        {row.studentName}
+                        <small>{row.studentLoginId}</small>
+                      </div>
+                    </td>
+                  )}
+                  <td>
+                    <span className={`priority priority-${row.priority.toLowerCase()}`}>
+                      <i />{row.priority}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={statusClass(row.status)}>
+                      <i />{row.status}
+                    </span>
+                  </td>
+                  <td className="updated-cell">{compact ? timeAgo(row.updatedAt) : shortDate(row.updatedAt)}</td>
+                  <td>
+                    <div className="row-actions-cell" onClick={(e) => e.stopPropagation()}>
+                      {isStudent && (
+                        !row.isDeleted ? (
+                          <button
+                            type="button"
+                            className="row-action-btn row-retract-btn"
+                            title="Delete from Desk (Temporary · Right-click enabled)"
+                            onClick={(e) => { e.stopPropagation(); onRetract?.(row); }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="row-action-btn row-restore-btn"
+                              title="Restore to Desk"
+                              onClick={(e) => { e.stopPropagation(); onRestore?.(row); }}
+                            >
+                              <RotateCcw size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              className="row-action-btn row-perm-delete-btn"
+                              title="Permanently Delete Forever"
+                              onClick={(e) => { e.stopPropagation(); onPermanentDelete?.(row); }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )
+                      )}
+                      <button
+                        type="button"
+                        className="row-open"
+                        aria-label={`Open ${row.complaintId}`}
+                        onClick={(event) => { event.stopPropagation(); onOpen(row); }}
+                      >
+                        <ArrowUpRight size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="empty-state">
+          <div className="empty-icon"><ClipboardList size={21} /></div>
+          <strong>{search ? 'No matching complaints' : 'No complaints to show'}</strong>
+          <p>
+            {search
+              ? 'Try another keyword or clear the status filter.'
+              : staffUser
+                ? 'New cases assigned to you will appear here.'
+                : 'When you submit a complaint, it will appear here.'}
+          </p>
+        </div>
+      )}
+      {rows.length > 0 && (admin || staffUser) && !compact && (
+        <div className="table-footer">
+          <span>Showing {rows.length} {rows.length === 1 ? 'case' : 'cases'}</span>
+          <span>Updated just now <span className="live-dot" /></span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SubmitPage({ user, categories, onSubmit, onCancel }) {
@@ -1598,27 +2282,180 @@ function SubmitPage({ user, categories, onSubmit, onCancel }) {
   </section>;
 }
 
-function ComplaintDialog({ complaint, history, user, staff, onClose, onStatus, onAssign }) {
+function ComplaintDialog({
+  complaint,
+  history,
+  user,
+  staff,
+  onClose,
+  onStatus,
+  onAssign,
+  onRetract,
+  onRestore,
+  onPermanentDelete,
+}) {
   const [remarks, setRemarks] = useState('');
-  return <div className="dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="detail-dialog" role="dialog" aria-modal="true" aria-label={`Complaint ${complaint.complaintId}`}>
-    <header className="dialog-header"><div><div className="eyebrow">CASE DETAILS</div><span className="case-id">{complaint.complaintId}</span></div><button className="icon-button" aria-label="Close details" onClick={onClose}><X size={18} /></button></header>
-    <div className="dialog-body"><span className={statusClass(complaint.status)}><i />{complaint.status}</span><h2>{complaint.title}</h2>
-      <div className="dialog-tags">
-        <span>{complaint.category}</span>
-        {complaint.department && (() => {
-          const dStyle = getDeptStyle({ name: complaint.department });
-          return <span style={{ backgroundColor: dStyle.bg, color: dStyle.color, borderColor: dStyle.border, borderWidth: 1, borderStyle: 'solid', fontWeight: 700, padding: '4px 8px', borderRadius: '4px' }}>{complaint.department}</span>;
-        })()}
-        <span className={`priority priority-${complaint.priority.toLowerCase()}`}><i />{complaint.priority} priority</span>
-      </div>
-      <p className="dialog-description">{complaint.description}</p>
-      <div className="detail-facts"><div><small>SUBMITTED BY</small><strong>{complaint.studentName}</strong><span>{complaint.studentLoginId}</span></div><div><small>SUBMITTED</small><strong>{shortDate(complaint.createdAt)}</strong><span>Last updated {timeAgo(complaint.updatedAt)}</span></div><div><small>ASSIGNED TO</small><strong>{complaint.assignedStaff || 'Not assigned'}</strong><span>{complaint.department}</span></div></div>
-      {(user.role === 'admin' || user.role === 'staff') && <div className="dialog-actions">{user.role === 'admin' && <label>Assign to<select value={complaint.assignedStaffId || ''} onChange={(event) => event.target.value && onAssign(complaint.complaintId, event.target.value)}><option value="" disabled>Choose staff member</option>{staff.map((person) => <option key={person.id} value={person.id}>{person.fullName} · {person.department}</option>)}</select></label>}<label>Update status<select value={complaint.status} onChange={(event) => onStatus(complaint.complaintId, event.target.value, remarks)}>{STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}</select></label><label className="remarks-input">Add a remark<textarea rows="2" placeholder="Add context for the student…" value={remarks} onChange={(event) => setRemarks(event.target.value)} /></label></div>}
-      {user.role === 'student' && complaint.status === 'Resolved' && <div className="dialog-actions"><label className="remarks-input">Provide Feedback & Close Case<textarea rows="2" placeholder="Share your feedback on how this concern was resolved…" value={remarks} onChange={(event) => setRemarks(event.target.value)} /></label><button className="button-primary" onClick={() => onStatus(complaint.complaintId, 'Closed', remarks ? `Feedback: ${remarks}` : 'Resolved satisfactorily.')}><Check size={16} /> Accept Resolution & Close</button></div>}
-      <div className="timeline-heading"><div><div className="eyebrow">AUDIT TRAIL</div><h3>Case history</h3></div><span>{history.length} {history.length === 1 ? 'event' : 'events'}</span></div>
-      <div className="history-timeline">{history.map((entry, index) => <div className="history-event" key={`${entry.action}-${entry.createdAt}-${index}`}><span className={`history-dot ${index === 0 ? 'history-dot-first' : ''}`} /><div className="history-event-main"><div><strong>{entry.newStatus || entry.action}</strong><small>{entry.actorName}</small></div><time>{shortDate(entry.createdAt)}</time></div>{entry.remarks && <p>{entry.remarks}</p>}</div>)}</div>
-    </div><footer className="dialog-footer"><span><ShieldCheck size={14} /> Changes are recorded in this case’s history.</span><button className="button-quiet" onClick={onClose}>Done</button></footer>
-  </section></div>;
+  const isStudent = user.role === 'student';
+
+  return (
+    <div className="dialog-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="detail-dialog" role="dialog" aria-modal="true" aria-label={`Complaint ${complaint.complaintId}`}>
+        <header className="dialog-header">
+          <div>
+            <div className="eyebrow">CASE DETAILS</div>
+            <span className="case-id">{complaint.complaintId}</span>
+          </div>
+          <button className="icon-button" aria-label="Close details" onClick={onClose}><X size={18} /></button>
+        </header>
+        <div className="dialog-body">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span className={statusClass(complaint.status)}><i />{complaint.status}</span>
+            {complaint.isDeleted && (
+              <span className="storage-badge storage-badge-retracted" style={{ padding: '4px 9px', fontSize: '11px' }}>
+                <Archive size={12} /> RETRACTED IN PERSONAL VAULT
+              </span>
+            )}
+          </div>
+
+          <h2>{complaint.title}</h2>
+          <div className="dialog-tags">
+            <span>{complaint.category}</span>
+            {complaint.department && (() => {
+              const dStyle = getDeptStyle({ name: complaint.department });
+              return (
+                <span style={{ backgroundColor: dStyle.bg, color: dStyle.color, borderColor: dStyle.border, borderWidth: 1, borderStyle: 'solid', fontWeight: 700, padding: '4px 8px', borderRadius: '4px' }}>
+                  {complaint.department}
+                </span>
+              );
+            })()}
+            <span className={`priority priority-${complaint.priority.toLowerCase()}`}><i />{complaint.priority} priority</span>
+          </div>
+
+          {complaint.isDeleted && (
+            <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', color: '#9f1239', padding: '12px 14px', borderRadius: '8px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '10px', margin: '14px 0' }}>
+              <Archive size={18} style={{ flexShrink: 0 }} />
+              <div>
+                <strong>Retracted Complaint:</strong> This case was deleted from the active desk. It cannot be seen by college administrators or staff. It is preserved securely in your personal vault.
+              </div>
+            </div>
+          )}
+
+          <p className="dialog-description">{complaint.description}</p>
+          <div className="detail-facts">
+            <div>
+              <small>SUBMITTED BY</small>
+              <strong>{complaint.studentName}</strong>
+              <span>{complaint.studentLoginId}</span>
+            </div>
+            <div>
+              <small>SUBMITTED</small>
+              <strong>{shortDate(complaint.createdAt)}</strong>
+              <span>Last updated {timeAgo(complaint.updatedAt)}</span>
+            </div>
+            <div>
+              <small>ASSIGNED TO</small>
+              <strong>{complaint.assignedStaff || 'Not assigned'}</strong>
+              <span>{complaint.department}</span>
+            </div>
+          </div>
+
+          {(user.role === 'admin' || user.role === 'staff') && (
+            <div className="dialog-actions">
+              {user.role === 'admin' && (
+                <label>Assign to
+                  <select value={complaint.assignedStaffId || ''} onChange={(event) => event.target.value && onAssign(complaint.complaintId, event.target.value)}>
+                    <option value="" disabled>Choose staff member</option>
+                    {staff.map((person) => <option key={person.id} value={person.id}>{person.fullName} · {person.department}</option>)}
+                  </select>
+                </label>
+              )}
+              <label>Update status
+                <select value={complaint.status} onChange={(event) => onStatus(complaint.complaintId, event.target.value, remarks)}>
+                  {STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
+                </select>
+              </label>
+              <label className="remarks-input">Add a remark
+                <textarea rows="2" placeholder="Add context for the student…" value={remarks} onChange={(event) => setRemarks(event.target.value)} />
+              </label>
+            </div>
+          )}
+
+          {isStudent && complaint.status === 'Resolved' && (
+            <div className="dialog-actions">
+              <label className="remarks-input">Provide Feedback & Close Case
+                <textarea rows="2" placeholder="Share your feedback on how this concern was resolved…" value={remarks} onChange={(event) => setRemarks(event.target.value)} />
+              </label>
+              <button className="button-primary" onClick={() => onStatus(complaint.complaintId, 'Closed', remarks ? `Feedback: ${remarks}` : 'Resolved satisfactorily.')}>
+                <Check size={16} /> Accept Resolution & Close
+              </button>
+            </div>
+          )}
+
+          {/* Student Delete & Restore actions inside dialog */}
+          {isStudent && (
+            <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <ShieldCheck size={14} /> Personal Control
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {!complaint.isDeleted ? (
+                  <button
+                    type="button"
+                    className="button-quiet"
+                    style={{ color: '#e11d48', borderColor: '#fecdd3', background: '#fff1f2', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    onClick={() => { onRetract?.(complaint); onClose(); }}
+                  >
+                    <Trash2 size={14} /> Delete from Desk (Temporary)
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="button-restore"
+                      onClick={() => { onRestore?.(complaint); onClose(); }}
+                    >
+                      <RotateCcw size={14} /> Restore to Active Desk
+                    </button>
+                    <button
+                      type="button"
+                      className="button-danger"
+                      onClick={() => { onPermanentDelete?.(complaint); onClose(); }}
+                    >
+                      <Trash2 size={14} /> Permanently Delete
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="timeline-heading">
+            <div><div className="eyebrow">AUDIT TRAIL</div><h3>Case history</h3></div>
+            <span>{history.length} {history.length === 1 ? 'event' : 'events'}</span>
+          </div>
+          <div className="history-timeline">
+            {history.map((entry, index) => (
+              <div className="history-event" key={`${entry.action}-${entry.createdAt}-${index}`}>
+                <span className={`history-dot ${index === 0 ? 'history-dot-first' : ''}`} />
+                <div className="history-event-main">
+                  <div>
+                    <strong>{entry.newStatus || entry.action}</strong>
+                    <small>{entry.actorName}</small>
+                  </div>
+                  <time>{shortDate(entry.createdAt)}</time>
+                </div>
+                {entry.remarks && <p>{entry.remarks}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+        <footer className="dialog-footer">
+          <span><ShieldCheck size={14} /> Changes are recorded in this case’s history.</span>
+          <button className="button-quiet" onClick={onClose}>Done</button>
+        </footer>
+      </section>
+    </div>
+  );
 }
 
 export default App;

@@ -135,6 +135,7 @@ app.get('/api/categories', authenticate, asyncRoute(async (_request, response) =
 }));
 
 const complaintSelect = `SELECT c.id, c.complaint_id AS "complaintId", c.title, c.description, c.priority, c.status,
+  c.is_deleted AS "isDeleted", c.deleted_at AS "deletedAt",
   c.created_at AS "createdAt", c.updated_at AS "updatedAt", c.resolved_at AS "resolvedAt",
   cat.name AS category, d.name AS department, student.full_name AS "studentName", student.login_id AS "studentLoginId",
   staff.full_name AS "assignedStaff", c.assigned_staff_id AS "assignedStaffId", c.student_id AS "studentUserId"
@@ -151,7 +152,8 @@ app.get('/api/dashboard', authenticate, asyncRoute(async (request, response) => 
       COUNT(*) FILTER (WHERE status = 'Closed')::int AS closed,
       COUNT(*) FILTER (WHERE priority = 'Critical' AND status NOT IN ('Resolved', 'Closed', 'Rejected'))::int AS critical
      FROM complaints c
-     WHERE ($1 = 'admin') OR ($1 = 'student' AND c.student_id = $2) OR ($1 = 'staff' AND c.assigned_staff_id = $2)`,
+     WHERE (c.is_deleted = FALSE)
+       AND (($1 = 'admin') OR ($1 = 'student' AND c.student_id = $2) OR ($1 = 'staff' AND c.assigned_staff_id = $2))`,
     [request.user.role, request.user.userId],
   );
   const countKey = request.user.role === 'admin' ? 'students' : request.user.role === 'staff' ? 'assigned' : null;
@@ -169,9 +171,17 @@ app.get('/api/complaints', authenticate, asyncRoute(async (request, response) =>
   if (request.user.role === 'student') {
     values.push(request.user.userId);
     conditions.push(`c.student_id = $${values.length}`);
-  } else if (request.user.role === 'staff') {
-    values.push(request.user.userId);
-    conditions.push(`c.assigned_staff_id = $${values.length}`);
+    // scope=all allows student to see all their complaints including personal vault (retracted ones)
+    if (request.query.scope !== 'all') {
+      conditions.push('c.is_deleted = FALSE');
+    }
+  } else {
+    // Admin and staff NEVER see soft-deleted / retracted complaints
+    conditions.push('c.is_deleted = FALSE');
+    if (request.user.role === 'staff') {
+      values.push(request.user.userId);
+      conditions.push(`c.assigned_staff_id = $${values.length}`);
+    }
   }
   const search = String(request.query.search || '').trim();
   if (search) {
@@ -199,6 +209,7 @@ app.get('/api/complaints/export', authenticate, allow('admin'), asyncRoute(async
     JOIN departments d ON d.id = c.department_id
     JOIN users student ON student.id = c.student_id
     LEFT JOIN users staff ON staff.id = c.assigned_staff_id
+    WHERE c.is_deleted = FALSE
     ORDER BY c.created_at DESC
   `);
   const headers = ['ID', 'Title', 'Category', 'Department', 'Student', 'StudentID', 'Priority', 'Status', 'AssignedStaff', 'CreatedAt', 'ResolvedAt'];
@@ -220,6 +231,10 @@ app.get('/api/complaints/:id', authenticate, asyncRoute(async (request, response
   const { rows } = await pool.query(`${complaintSelect} WHERE c.complaint_id = $1`, [request.params.id]);
   const complaint = rows[0];
   if (!complaint) return response.status(404).json({ error: 'Complaint not found.' });
+  // If complaint is retracted/deleted, administrators and staff cannot access it
+  if (complaint.isDeleted && request.user.role !== 'student') {
+    return response.status(404).json({ error: 'Complaint not found.' });
+  }
   if (request.user.role === 'student' && complaint.studentUserId !== request.user.userId) return response.status(404).json({ error: 'Complaint not found.' });
   if (request.user.role === 'staff' && complaint.assignedStaffId !== request.user.userId) return response.status(404).json({ error: 'Complaint not found.' });
   const history = (await pool.query(
@@ -354,6 +369,63 @@ app.patch('/api/complaints/:id/status', authenticate, allow('admin', 'staff', 's
   } finally {
     client.release();
   }
+}));
+
+app.delete('/api/complaints/:id', authenticate, asyncRoute(async (request, response) => {
+  const { rows } = await pool.query(
+    'SELECT id, student_id, is_deleted, status FROM complaints WHERE complaint_id = $1',
+    [request.params.id],
+  );
+  const complaint = rows[0];
+  if (!complaint) return response.status(404).json({ error: 'Complaint not found.' });
+  if (request.user.role === 'student' && complaint.student_id !== request.user.userId) {
+    return response.status(403).json({ error: 'You do not have permission to delete this complaint.' });
+  }
+  await pool.query(
+    'UPDATE complaints SET is_deleted = TRUE, deleted_at = NOW(), updated_at = NOW() WHERE id = $1',
+    [complaint.id],
+  );
+  await pool.query(
+    'INSERT INTO complaint_history (complaint_id, user_id, action, old_status, new_status, remarks) VALUES ($1, $2, $3, $4, $5, $6)',
+    [complaint.id, request.user.userId, 'Retracted', complaint.status, complaint.status, 'Complaint retracted by student from college service desk and preserved in personal storage vault.'],
+  );
+  response.json({ success: true, message: 'Complaint retracted and moved to your personal storage.' });
+}));
+
+app.post('/api/complaints/:id/restore', authenticate, asyncRoute(async (request, response) => {
+  const { rows } = await pool.query(
+    'SELECT id, student_id, is_deleted, status FROM complaints WHERE complaint_id = $1',
+    [request.params.id],
+  );
+  const complaint = rows[0];
+  if (!complaint) return response.status(404).json({ error: 'Complaint not found.' });
+  if (request.user.role === 'student' && complaint.student_id !== request.user.userId) {
+    return response.status(403).json({ error: 'You do not have permission to restore this complaint.' });
+  }
+  await pool.query(
+    'UPDATE complaints SET is_deleted = FALSE, deleted_at = NULL, updated_at = NOW() WHERE id = $1',
+    [complaint.id],
+  );
+  await pool.query(
+    'INSERT INTO complaint_history (complaint_id, user_id, action, old_status, new_status, remarks) VALUES ($1, $2, $3, $4, $5, $6)',
+    [complaint.id, request.user.userId, 'Restored', complaint.status, complaint.status, 'Complaint restored to active college desk by student.'],
+  );
+  response.json({ success: true, message: 'Complaint restored to active desk.' });
+}));
+
+app.delete('/api/complaints/:id/permanent', authenticate, asyncRoute(async (request, response) => {
+  const { rows } = await pool.query(
+    'SELECT id, student_id, complaint_id FROM complaints WHERE complaint_id = $1',
+    [request.params.id],
+  );
+  const complaint = rows[0];
+  if (!complaint) return response.status(404).json({ error: 'Complaint not found.' });
+  if (request.user.role === 'student' && complaint.student_id !== request.user.userId) {
+    return response.status(403).json({ error: 'You do not have permission to permanently delete this complaint.' });
+  }
+  await pool.query('DELETE FROM complaints WHERE id = $1', [complaint.id]);
+  await pool.query('DELETE FROM notifications WHERE message ILIKE $1', [`%${request.params.id}%`]);
+  response.json({ success: true, message: 'Complaint permanently deleted from all records.' });
 }));
 
 app.get('/api/notifications', authenticate, asyncRoute(async (request, response) => {

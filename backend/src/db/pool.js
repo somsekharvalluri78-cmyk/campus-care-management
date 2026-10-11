@@ -18,7 +18,7 @@ export const pool = new Pool({
   connectionTimeoutMillis: 15000,
 });
 
-export async function queryWithRetry(sql, params = [], retries = 3) {
+export async function queryWithRetry(sql, params = [], retries = 5) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       return await pool.query(sql, params);
@@ -29,7 +29,7 @@ export async function queryWithRetry(sql, params = [], retries = 3) {
         err.message?.includes('timeout') ||
         err.message?.includes('getaddrinfo');
       if (isTransient && attempt < retries) {
-        await new Promise((resolve) => setTimeout(resolve, attempt * 250));
+        await new Promise((resolve) => setTimeout(resolve, attempt * 500));
         continue;
       }
       throw err;
