@@ -901,13 +901,306 @@ function DepartmentSearchSelect({
   );
 }
 
+function getDepartmentYearConfig(department) {
+  if (!department) {
+    return {
+      totalYears: 4,
+      programType: 'Academic Degree Program',
+      years: [1, 2, 3, 4],
+    };
+  }
+
+  const name = (department.name || '').toLowerCase();
+  const code = (department.code || '').toUpperCase();
+  const cat = (department.category || '').toLowerCase();
+
+  // 1. Pharm.D (6 Years)
+  if (code === 'PHARMD' || name.includes('pharm.d') || name.includes('doctor of pharmacy')) {
+    return {
+      totalYears: 6,
+      programType: '6-Year Professional Doctorate Program',
+      years: [1, 2, 3, 4, 5, 6],
+    };
+  }
+
+  // 2. 5-Year Integrated Law, Ph.D, Architecture
+  if (
+    name.includes('5 year') ||
+    name.includes('5-year') ||
+    code === 'BALLB' ||
+    code === 'BBALLB' ||
+    code === 'BCOMLLB' ||
+    code === 'INT-LAW' ||
+    code === 'PHD-ED' ||
+    name.includes('ph.d') ||
+    name.includes('integrated law') ||
+    (cat.includes('law') && (name.includes('ba llb') || name.includes('bba llb') || name.includes('b.com llb')))
+  ) {
+    return {
+      totalYears: 5,
+      programType: name.includes('ph.d') ? '5-Year Doctoral Research Program' : '5-Year Integrated Professional Degree',
+      years: [1, 2, 3, 4, 5],
+    };
+  }
+
+  // 3. 2-Year Programs: M.Tech, M.Sc, M.A, M.Com, MBA, MCA, M.Pharm, M.Ed, B.Ed, D.Pharm, D.El.Ed, MPT, M.Arch, PGDM, M.Phil
+  if (
+    name.startsWith('m.tech') ||
+    code.startsWith('MTECH') ||
+    name.startsWith('m.sc') ||
+    code.startsWith('MSC') ||
+    name.startsWith('ma ') ||
+    name.startsWith('m.a') ||
+    code.startsWith('MA-') ||
+    name.startsWith('m.com') ||
+    code.startsWith('MCOM') ||
+    code === 'MBA' ||
+    code === 'MBA-SPEC' ||
+    code === 'EXEC-MBA' ||
+    code === 'PGDM' ||
+    code === 'MCA' ||
+    name.includes('mca') ||
+    name.includes('mba') ||
+    name.includes('pgdm') ||
+    name.startsWith('m.pharm') ||
+    code.startsWith('MPHARM') ||
+    code === 'DPHARM' ||
+    name.startsWith('d.pharm') ||
+    code === 'BED' ||
+    name.startsWith('b.ed') ||
+    code === 'MED' ||
+    name.startsWith('m.ed') ||
+    code === 'DELED' ||
+    name.startsWith('d.el.ed') ||
+    code === 'MPHIL-ED' ||
+    code === 'MPT' ||
+    code === 'MARCH' ||
+    name.includes('m.arch') ||
+    name.includes('master')
+  ) {
+    return {
+      totalYears: 2,
+      programType: code === 'DPHARM' || code === 'DELED' ? '2-Year Diploma Program' : code === 'BED' ? '2-Year Bachelor of Education' : '2-Year Post-Graduate (PG) Program',
+      years: [1, 2],
+    };
+  }
+
+  // 4. 4-Year Programs: B.Tech, B.E., Engineering, B.Pharm, B.Sc Agriculture/Horticulture/Forestry, B.Sc Nursing, BPT, B.El.Ed, Hotel Management
+  if (
+    cat.includes('engineering') ||
+    cat.includes('electrical') ||
+    cat.includes('electronics') ||
+    cat.includes('mechanical') ||
+    cat.includes('civil') ||
+    name.includes('engineering') ||
+    name.includes('b.tech') ||
+    code === 'BPHARM' ||
+    name.includes('b.pharm') ||
+    code === 'BELED' ||
+    name.includes('b.el.ed') ||
+    code === 'NURS-BSC' ||
+    name.includes('b.sc. nursing') ||
+    code === 'BPT' ||
+    name.includes('physiotherapy') ||
+    code === 'HOTEL-MGMT' ||
+    name.includes('hotel management') ||
+    (cat.includes('agriculture') && name.startsWith('b.sc')) ||
+    code.startsWith('AGRI-') ||
+    code === 'BSC-AGRI' ||
+    code === 'BSC-HORT' ||
+    code === 'BSC-FOR' ||
+    code === 'BSC-FISH' ||
+    code === 'BSC-SERI'
+  ) {
+    return {
+      totalYears: 4,
+      programType: '4-Year Professional Degree Program',
+      years: [1, 2, 3, 4],
+    };
+  }
+
+  // 5. 3-Year Programs: Standard B.Sc, B.A, B.Com, BBA, BCA, LLB (3-Year), GNM, Allied Health, Design, Animation, Diplomas
+  return {
+    totalYears: 3,
+    programType: code === 'LLB' ? '3-Year Bachelor of Law' : '3-Year Under-Graduate (UG) Program',
+    years: [1, 2, 3],
+  };
+}
+
+const YEAR_DETAILS = {
+  1: { badge: 'YEAR 1', bg: '#f0f9ff', color: '#0284c7', border: '#bae6fd', title: '1st Year', sub: 'Fresher • Initial Enrollment & Foundations' },
+  2: { badge: 'YEAR 2', bg: '#eef2ff', color: '#6366f1', border: '#c7d2fe', title: '2nd Year', sub: 'Sophomore • Core Domain Coursework' },
+  3: { badge: 'YEAR 3', bg: '#fffbeb', color: '#d97706', border: '#fde68a', title: '3rd Year', sub: 'Pre-Final • Advanced Projects & Labs' },
+  4: { badge: 'YEAR 4', bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0', title: '4th Year', sub: 'Final Year • Capstone & Campus Placements' },
+  5: { badge: 'YEAR 5', bg: '#faf5ff', color: '#9333ea', border: '#e9d5ff', title: '5th Year', sub: 'Finalist • Integrated Professional Practice' },
+  6: { badge: 'YEAR 6', bg: '#fff1f2', color: '#e11d48', border: '#fecdd3', title: '6th Year', sub: 'Doctoral Residency • Hospital Internship' },
+};
+
+function YearSelect({
+  value,
+  onChange,
+  department,
+  disabled = false,
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const yearConfig = useMemo(() => getDepartmentYearConfig(department), [department]);
+  const hasDepartment = Boolean(department);
+
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isOpen]);
+
+  const selectedYear = Number(value);
+  const selectedDetail = YEAR_DETAILS[selectedYear];
+
+  function handleSelect(y) {
+    onChange(y);
+    setIsOpen(false);
+  }
+
+  return (
+    <div
+      className={`year-select-wrap ${isOpen ? 'year-select-open' : ''}`}
+      ref={containerRef}
+    >
+      <button
+        type="button"
+        className={`year-select-trigger ${!hasDepartment || disabled ? 'disabled' : ''}`}
+        onClick={() => hasDepartment && !disabled && setIsOpen(!isOpen)}
+        disabled={!hasDepartment || disabled}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <div className="year-selected-content">
+          {selectedYear && selectedDetail ? (
+            <>
+              <span
+                className="year-badge"
+                style={{
+                  backgroundColor: selectedDetail.bg,
+                  color: selectedDetail.color,
+                  borderColor: selectedDetail.border,
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                }}
+              >
+                {selectedDetail.badge}
+              </span>
+              <span className="year-selected-name">
+                {selectedDetail.title}
+              </span>
+            </>
+          ) : (
+            <span className="year-placeholder">
+              {!hasDepartment ? 'Select department first' : `Choose year (${yearConfig.totalYears} years course)`}
+            </span>
+          )}
+        </div>
+        <ChevronDown
+          size={15}
+          style={{
+            opacity: hasDepartment ? 0.7 : 0.4,
+            transform: isOpen ? 'rotate(180deg)' : 'none',
+            transition: 'transform .15s',
+          }}
+        />
+      </button>
+
+      {isOpen && (
+        <div className="year-dropdown-panel" role="listbox">
+          <div className="year-panel-header">
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>
+              Academic Year Selection
+            </span>
+            <span className="year-program-tag">
+              {yearConfig.totalYears} Years Duration
+            </span>
+          </div>
+
+          <div className="year-options-list">
+            {yearConfig.years.map((y) => {
+              const detail = YEAR_DETAILS[y] || {
+                badge: `YEAR ${y}`,
+                bg: '#f1f5f9',
+                color: '#475569',
+                border: '#cbd5e1',
+                title: `${y}th Year`,
+                sub: `Academic Year ${y}`,
+              };
+              const isSelected = selectedYear === y;
+              return (
+                <button
+                  key={y}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  className={`year-option ${isSelected ? 'selected' : ''}`}
+                  onClick={() => handleSelect(y)}
+                >
+                  <span
+                    className="year-badge"
+                    style={{
+                      backgroundColor: detail.bg,
+                      color: detail.color,
+                      borderColor: detail.border,
+                      borderWidth: 1,
+                      borderStyle: 'solid',
+                    }}
+                  >
+                    {detail.badge}
+                  </span>
+                  <div className="year-option-info">
+                    <span className="year-option-title" style={{ color: isSelected ? detail.color : undefined }}>
+                      {detail.title}
+                    </span>
+                    <span className="year-option-sub">
+                      {detail.sub}
+                    </span>
+                  </div>
+                  {isSelected && <Check size={14} style={{ color: detail.color, marginLeft: 'auto' }} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LoginPage({ identifier, password, error, pending, onIdentifier, onPassword, onSubmit, onDemo, onRegister }) {
   const [mode, setMode] = useState('login');
   const [departments, setDepartments] = useState([]);
   const [departmentError, setDepartmentError] = useState('');
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
+  const [selectedYear, setSelectedYear] = useState('');
   const [formError, setFormError] = useState('');
+
+  const selectedDept = useMemo(() => {
+    return departments.find((d) => String(d.id) === String(selectedDepartmentId));
+  }, [departments, selectedDepartmentId]);
+
+  useEffect(() => {
+    if (selectedDept) {
+      const config = getDepartmentYearConfig(selectedDept);
+      if (selectedYear && !config.years.includes(Number(selectedYear))) {
+        setSelectedYear('');
+      }
+    } else {
+      setSelectedYear('');
+    }
+  }, [selectedDept]);
 
   useEffect(() => {
     loadDepartments();
@@ -931,8 +1224,13 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     const deptId = selectedDepartmentId || values.get('departmentId');
+    const yr = selectedYear || values.get('year');
     if (!deptId) {
       setFormError('Please choose your college department.');
+      return;
+    }
+    if (!yr) {
+      setFormError('Please choose your academic year.');
       return;
     }
     if (values.get('password') !== values.get('confirmPassword')) {
@@ -942,7 +1240,7 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
     setFormError('');
     onRegister({
       studentId: values.get('studentId'), fullName: values.get('fullName'), email: values.get('email'),
-      departmentId: Number(deptId), year: Number(values.get('year')),
+      departmentId: Number(deptId), year: Number(yr),
       section: values.get('section'), phone: values.get('phone'), password: values.get('password'),
     });
   }
@@ -969,11 +1267,14 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
             />
             <input type="hidden" name="departmentId" value={selectedDepartmentId || ''} required />
           </label>
-          <label>Year
-            <select name="year" defaultValue="" required>
-              <option value="" disabled>Choose year</option>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((year) => <option key={year} value={year}>{year}{year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'} year</option>)}
-            </select>
+          <label style={{ position: 'relative' }}>Year
+            <YearSelect
+              value={selectedYear}
+              onChange={setSelectedYear}
+              department={selectedDept}
+              disabled={!selectedDept}
+            />
+            <input type="hidden" name="year" value={selectedYear || ''} required />
           </label>
         </div>
         {departmentError && <div className="department-error" role="alert"><span>{departmentError}</span><button type="button" className="department-retry" onClick={loadDepartments} disabled={departmentsLoading}>{departmentsLoading ? 'Retrying…' : 'Retry'}</button></div>}
@@ -984,7 +1285,7 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
         {(formError || error) && <div className="login-error" role="alert">{formError || error}</div>}
         <button className="button-primary login-submit" disabled={pending || departments.length === 0}>{pending ? 'Creating account…' : 'Create account'}<ArrowRight size={17} /></button>
       </form>}
-      <div className="auth-switch">{mode === 'login' ? <>New to Campus Care? <button type="button" onClick={() => { setMode('register'); setFormError(''); setSelectedDepartmentId(''); }}>Create a student account</button></> : <>Already registered? <button type="button" onClick={() => { setMode('login'); setFormError(''); setSelectedDepartmentId(''); }}>Sign in instead</button></>}</div>
+      <div className="auth-switch">{mode === 'login' ? <>New to Campus Care? <button type="button" onClick={() => { setMode('register'); setFormError(''); setSelectedDepartmentId(''); setSelectedYear(''); }}>Create a student account</button></> : <>Already registered? <button type="button" onClick={() => { setMode('login'); setFormError(''); setSelectedDepartmentId(''); setSelectedYear(''); }}>Sign in instead</button></>}</div>
       {mode === 'login' && import.meta.env.DEV && <><div className="demo-divider"><span /> QUICK DEMO ACCESS <span /></div><div className="demo-accounts">{DEMO_ACCOUNTS.map(({ label, identifier: demoId, icon: Icon }) => <button key={label} onClick={() => onDemo(demoId)} className="demo-account"><Icon size={17} /><span><strong>{label}</strong><small>{demoId}</small></span><ArrowUpRight size={14} className="demo-arrow" /></button>)}</div></>}
       <div className="login-security"><ShieldCheck size={15} /> Your information is only visible to authorized staff.</div>
     </div><div className="login-form-footer">© 2026 Northfield College <span>•</span> Student support, made simple</div></section>
