@@ -2653,7 +2653,79 @@ function SubmitPage({ user, categories, onSubmit, onCancel }) {
                 required
               />
             </div>
+          </div>
 
+          {/* SECTION 2: CORE COMPLAINT SUMMARY */}
+          <div className="form-section-label form-section-second" style={{ marginTop: 24 }}>
+            <span>02</span>
+            <div>
+              <strong>Complaint Classification & Summary</strong>
+              <small>Category, title, description and supporting file</small>
+            </div>
+          </div>
+
+          <div className="form-field-grid">
+            <label>Category
+              <select name="categoryId" required defaultValue="">
+                <option value="" disabled>Choose a category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>Priority
+              <select
+                name="priority"
+                value={selectedEmergency ? 'Critical' : undefined}
+                defaultValue="Medium"
+              >
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+                <option>Critical</option>
+              </select>
+            </label>
+          </div>
+
+          <label>Complaint title
+            <input name="title" minLength={3} maxLength={180} placeholder="A clear, short summary" required />
+          </label>
+
+          <label>What happened?
+            <textarea
+              name="description"
+              minLength={10}
+              maxLength={5000}
+              rows={4}
+              placeholder="Share the details that will help us understand the situation…"
+              required
+            />
+            <span className="field-hint">Include when and where it happened, and what you’ve already tried.</span>
+          </label>
+
+          <div className="attachment-box">
+            <label className="attachment-label">
+              <span className="attachment-icon"><FilePlus2 size={17} /></span>
+              <span>
+                <strong>{attachmentName || 'Add a supporting file'}</strong>
+                <small>{attachmentName ? 'File attached' : 'Optional · PNG, JPG, or PDF (up to 5MB)'}</small>
+              </span>
+              <span className="attachment-browse">{attachmentName ? 'Change' : 'Browse'}</span>
+              <input type="file" accept="image/*,.pdf" onChange={(event) => setAttachmentName(event.target.files?.[0]?.name || '')} />
+            </label>
+          </div>
+
+          {/* SECTION 3: INCIDENT IMPACT, ASSESSMENT & EMERGENCY DISPATCH */}
+          {/* Positioned directly down from 'Add a supporting file' */}
+          <div className="form-section-label form-section-second" style={{ marginTop: 28 }}>
+            <span>03</span>
+            <div>
+              <strong>Incident Impact, Assessment & Emergency Services</strong>
+              <small>Duration, manifestation, suggestions, impact count and urgent emergency dispatch</small>
+            </div>
+          </div>
+
+          <div className="complaint-fields-series">
             {/* 11. Days Facing Problem */}
             <div className="complaint-field-card c-field-days">
               <div className="complaint-field-top">
@@ -2712,16 +2784,8 @@ function SubmitPage({ user, categories, onSubmit, onCancel }) {
             </div>
           </div>
 
-          {/* SECTION 2: EMERGENCY DISPATCH SELECTOR */}
-          <div className="form-section-label form-section-second" style={{ marginTop: 24 }}>
-            <span>02</span>
-            <div>
-              <strong>Emergency Dispatch & Services</strong>
-              <small>Choose the option if there is an emergency complaint</small>
-            </div>
-          </div>
-
-          <div className={`emergency-dispatch-panel ${selectedEmergency ? 'active' : ''}`}>
+          {/* 15. Emergency Dispatch Selector (4 emergency choices) */}
+          <div className={`emergency-dispatch-panel ${selectedEmergency ? 'active' : ''}`} style={{ marginTop: 20 }}>
             <div className="emerg-header">
               <div className="emerg-header-title">
                 <ShieldAlert size={20} color="#e11d48" />
@@ -2809,66 +2873,6 @@ function SubmitPage({ user, categories, onSubmit, onCancel }) {
                 </button>
               </div>
             )}
-          </div>
-
-          {/* SECTION 3: CORE COMPLAINT SUMMARY */}
-          <div className="form-section-label form-section-second" style={{ marginTop: 24 }}>
-            <span>03</span>
-            <div>
-              <strong>Complaint Classification & Summary</strong>
-              <small>Category, title and thorough explanation</small>
-            </div>
-          </div>
-
-          <div className="form-field-grid">
-            <label>Category
-              <select name="categoryId" required defaultValue="">
-                <option value="" disabled>Choose a category</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>Priority
-              <select
-                name="priority"
-                value={selectedEmergency ? 'Critical' : undefined}
-                defaultValue="Medium"
-              >
-                <option>Low</option>
-                <option>Medium</option>
-                <option>High</option>
-                <option>Critical</option>
-              </select>
-            </label>
-          </div>
-
-          <label>Complaint title
-            <input name="title" minLength={3} maxLength={180} placeholder="A clear, short summary" required />
-          </label>
-
-          <label>What happened?
-            <textarea
-              name="description"
-              minLength={10}
-              maxLength={5000}
-              rows={4}
-              placeholder="Share the details that will help us understand the situation…"
-              required
-            />
-            <span className="field-hint">Include when and where it happened, and what you’ve already tried.</span>
-          </label>
-
-          <div className="attachment-box">
-            <label className="attachment-label">
-              <span className="attachment-icon"><FilePlus2 size={17} /></span>
-              <span>
-                <strong>{attachmentName || 'Add a supporting file'}</strong>
-                <small>{attachmentName ? 'File attached' : 'Optional · PNG, JPG, or PDF (up to 5MB)'}</small>
-              </span>
-              <span className="attachment-browse">{attachmentName ? 'Change' : 'Browse'}</span>
-              <input type="file" accept="image/*,.pdf" onChange={(event) => setAttachmentName(event.target.files?.[0]?.name || '')} />
-            </label>
           </div>
 
           <div className="form-footer">
