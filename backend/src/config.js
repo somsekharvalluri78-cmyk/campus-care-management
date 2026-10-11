@@ -17,5 +17,5 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL,
   jwtSecret: process.env.JWT_SECRET || defaultJwtSecret,
   clientOrigin: process.env.CLIENT_ORIGIN || '*',
-  publicSiteUrl: (process.env.PUBLIC_SITE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:5173').replace(/\/$/, ''),
+  publicSiteUrl: (process.env.PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173')).replace(/\/$/, ''),
 };

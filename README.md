@@ -6,15 +6,14 @@
 ![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/somsekharvalluri78-cmyk/campus-care-management)
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7?logo=render&logoColor=white)](https://campus-care-trzj.onrender.com)
-[![Vercel Deployment](https://img.shields.io/badge/Vercel-Live%20Frontend-black?logo=vercel)](https://campus-care-management.vercel.app)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fsomsekharvalluri78-cmyk%2Fcampus-care-management)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-black?logo=vercel)](https://campus-care-management.vercel.app)
+[![Neon Database](https://img.shields.io/badge/Database-Neon%20PostgreSQL-00E599?logo=postgresql&logoColor=white)](https://neon.tech)
 
 > **Campus Care** is a modern, full-stack, role-based College Complaint Management System built with **React**, **Express**, and **PostgreSQL**. It empowers students to submit and track issues, gives department officers a focused queue to investigate and resolve grievances, and equips administrators with analytics, staff assignment tools, and spreadsheet reporting.
 
-**🌐 Live Deployments:**
-- **Full-Stack Application (Express + PostgreSQL + React):** [https://campus-care-trzj.onrender.com](https://campus-care-trzj.onrender.com)
-- **Frontend SPA (Vercel):** [https://campus-care-management.vercel.app](https://campus-care-management.vercel.app)
+**🌐 Live Deployment:**
+- **Full-Stack Application (Vercel + Neon PostgreSQL):** [https://campus-care-management.vercel.app](https://campus-care-management.vercel.app)
 
 Based on [`spec.md`](spec.md), which serves as the specification and single source of truth for product requirements.
 
@@ -127,8 +126,8 @@ Use these pre-seeded accounts for testing each role:
 
 This project is configured to run on **100% Lifetime Free** platforms without 30-day database expirations or paid requirements.
 
-### 1. Database: Neon PostgreSQL (Lifetime Free, No 30-Day Expiry)
-Unlike Render's temporary 30-day PostgreSQL databases, [Neon](https://neon.tech) offers a permanent, generous free PostgreSQL tier that never expires:
+### 1. Database: Neon PostgreSQL (Lifetime Free, No Expiry)
+[Neon](https://neon.tech) offers a permanent, generous free cloud PostgreSQL database tier that never expires:
 1. Sign up for free at [neon.tech](https://neon.tech).
 2. Create a project (e.g. `campus-care`).
 3. Copy the pooled connection string (`DATABASE_URL`).
@@ -154,15 +153,7 @@ Deploy as a persistent Node.js web service without sleeping:
 4. Run command: `npm start`
 5. Add environment variable `DATABASE_URL` pointing to your Neon database.
 
-### 4. Alternative: Render Web Service (Using Neon DB)
-If you prefer Render:
-1. Do **not** use Render's 30-day PostgreSQL database.
-2. Create a **Web Service** on [Render.com](https://render.com).
-3. Build Command: `npm ci --include=dev && npm run build`
-4. Start Command: `npm start`
-5. Add environment variable `DATABASE_URL` set to your Neon PostgreSQL URL.
-
-### 5. Instant Expo Backup (Localhost + Free Tunnel)
+### 4. Instant Expo Backup (Localhost + Free Tunnel)
 If presenting at a college expo or project review:
 1. Run `npm run build && npm start`
 2. In a second terminal, run `npm run tunnel` to get an instant, rock-solid public HTTPS link with zero cloud dependency.
@@ -174,9 +165,10 @@ If presenting at a college expo or project review:
 | Script | Description |
 | --- | --- |
 | `npm run dev` | Runs backend API (port 4000) and frontend (port 5173) concurrently in watch mode |
-| `npm run build` | Compiles the React/Vite frontend into `frontend/dist/` |
+| `npm run build` | Compiles the React/Vite frontend into `frontend/dist/` and `dist/` |
 | `npm run start` | Runs the production Express server (serves API + built frontend) |
 | `npm test` | Runs Node.js test suite for backend business logic |
+| `npm run tunnel` | Exposes local production server to a public HTTPS URL via localtunnel |
 | `npm run db:up` | Starts local PostgreSQL container in background |
 | `npm run db:down` | Stops local PostgreSQL container |
 | `npm run db:setup` | Executes `database/schema.sql` migrations |
@@ -188,6 +180,7 @@ If presenting at a college expo or project review:
 
 ```text
 ├── .github/workflows/    # CI Pipeline (automated test & build verification)
+├── api/                  # Vercel Serverless Function entry point
 ├── backend/              # Express API, auth, business logic, and test suites
 │   ├── src/              # Server routes, database pool, configuration
 │   └── test/             # Unit and integration tests
@@ -195,10 +188,11 @@ If presenting at a college expo or project review:
 ├── docs/                 # API documentation (API.md)
 ├── frontend/             # React (Vite) single-page application
 │   └── src/              # App.jsx, styles.css, main.jsx
+├── scripts/              # Build and deployment utilities
 ├── Dockerfile            # Production multi-stage Docker container
 ├── docker-compose.yml    # Development PostgreSQL service definition
-├── render.yaml           # Cloud deployment blueprint
 ├── spec.md               # Product specification and requirements document
+├── vercel.json           # Vercel serverless and static routing configuration
 └── package.json          # Root workspace configuration
 ```
 
