@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS complaint_categories (
 
 CREATE TABLE IF NOT EXISTS complaints (
   id BIGSERIAL PRIMARY KEY,
-  complaint_id VARCHAR(32) NOT NULL UNIQUE,
+  complaint_id VARCHAR(64) NOT NULL UNIQUE,
   student_id INTEGER NOT NULL REFERENCES users(id),
   category_id INTEGER NOT NULL REFERENCES complaint_categories(id),
   department_id INTEGER NOT NULL REFERENCES departments(id),

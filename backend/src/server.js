@@ -237,8 +237,8 @@ app.post('/api/complaints', authenticate, allow('student'), asyncRoute(async (re
   try {
     await client.query('BEGIN');
     const { rows: identityRows } = await client.query('SELECT department_id FROM users WHERE id = $1', [request.user.userId]);
-    const dept = identityRows[0].department_id;
-    const temporaryId = `TMP-${randomUUID()}`;
+    const dept = identityRows[0]?.department_id || 1;
+    const temporaryId = `TMP-${randomUUID().replace(/-/g, '').slice(0, 16)}`;
     const insert = await client.query(
       `INSERT INTO complaints (complaint_id, student_id, category_id, department_id, title, description, priority)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at`,

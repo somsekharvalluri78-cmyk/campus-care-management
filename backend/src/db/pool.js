@@ -8,4 +8,7 @@ const requiresSsl = Boolean(config.databaseUrl) && !config.databaseUrl.includes(
 export const pool = new Pool({
   connectionString: config.databaseUrl,
   ssl: requiresSsl ? { rejectUnauthorized: false } : undefined,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
