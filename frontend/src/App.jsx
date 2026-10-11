@@ -426,7 +426,7 @@ function getDeptStyle(department) {
   const code = (department.code || '').toUpperCase();
   const category = (department.category || '').toLowerCase();
 
-  // 1. Computer Science & Engineering / Computer & IT -> RED (User request: CSE is red)
+  // 1. Computer Science & Engineering / Computer & IT -> RED with Space Grotesk (Tech/Code)
   if (
     code === 'CSE' ||
     name.includes('computer science') ||
@@ -440,11 +440,11 @@ function getDeptStyle(department) {
       border: '#fca5a5',
       badge: code.includes('CSE') || name.includes('cse') ? 'CSE' : (code || 'CS'),
       accent: '#b91c1c',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Space Grotesk', sans-serif",
     };
   }
 
-  // 2. Electrical & Electronics Engineering (EEE) -> BLUE (User request: EEE is blue)
+  // 2. Electrical & Electronics Engineering (EEE) -> BLUE with Plus Jakarta Sans (Precision Engineering)
   if (
     code === 'EEE' ||
     name.includes('electrical & electronics') ||
@@ -459,11 +459,11 @@ function getDeptStyle(department) {
       border: '#93c5fd',
       badge: code.includes('EEE') || name.includes('eee') ? 'EEE' : (code || 'EEE'),
       accent: '#1d4ed8',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
     };
   }
 
-  // 3. Electronics & Communication (ECE) -> CYAN / TEAL
+  // 3. Electronics & Communication (ECE) -> CYAN / TEAL with Syne (High Frequency & Signals)
   if (
     code === 'ECE' ||
     name.includes('electronics & communication') ||
@@ -477,11 +477,11 @@ function getDeptStyle(department) {
       border: '#a5f3fc',
       badge: code || 'ECE',
       accent: '#0e7490',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Syne', sans-serif",
     };
   }
 
-  // 4. Mechanical & Related -> VIBRANT ORANGE
+  // 4. Mechanical & Related -> VIBRANT ORANGE with Outfit (Industrial Mechanical Power)
   if (
     code === 'ME' ||
     name.includes('mechanical') ||
@@ -496,11 +496,11 @@ function getDeptStyle(department) {
       border: '#fed7aa',
       badge: code || 'MECH',
       accent: '#c2410c',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Outfit', sans-serif",
     };
   }
 
-  // 5. Civil & Architecture -> DEEP EMERALD GREEN
+  // 5. Civil & Architecture -> DEEP EMERALD GREEN with Manrope (Structural & Architectural Balance)
   if (
     code === 'CE' ||
     name.includes('civil') ||
@@ -514,11 +514,11 @@ function getDeptStyle(department) {
       border: '#86efac',
       badge: code || 'CIVIL',
       accent: '#15803d',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Manrope', sans-serif",
     };
   }
 
-  // 6. Science -> PURPLE
+  // 6. Science -> PURPLE with Epilogue (Inquiry & Research)
   if (category.includes('science') && !category.includes('computer')) {
     return {
       bg: '#faf5ff',
@@ -526,11 +526,11 @@ function getDeptStyle(department) {
       border: '#d8b4fe',
       badge: code || 'SCI',
       accent: '#7e22ce',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Epilogue', sans-serif",
     };
   }
 
-  // 7. Management (MBA, BBA) -> INDIGO
+  // 7. Management (MBA, BBA) -> INDIGO with Plus Jakarta Sans (Executive Leadership)
   if (category.includes('management') || code.includes('MBA') || code.includes('BBA')) {
     return {
       bg: '#eef2ff',
@@ -538,11 +538,11 @@ function getDeptStyle(department) {
       border: '#a5b4fc',
       badge: code || 'MGMT',
       accent: '#4338ca',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
     };
   }
 
-  // 8. Commerce & Business -> TEAL
+  // 8. Commerce & Business -> TEAL with Lexend (Fintech & Hyper-Readability)
   if (category.includes('commerce') || code.includes('BCOM') || code.includes('MCOM')) {
     return {
       bg: '#f0fdfa',
@@ -550,11 +550,11 @@ function getDeptStyle(department) {
       border: '#5eead4',
       badge: code || 'COMM',
       accent: '#0f766e',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Lexend', sans-serif",
     };
   }
 
-  // 9. Arts & Humanities -> ROSE
+  // 9. Arts & Humanities -> ROSE with Fraunces (Literary & Creative Expression)
   if (category.includes('arts') || category.includes('humanities')) {
     return {
       bg: '#fff1f2',
@@ -562,11 +562,11 @@ function getDeptStyle(department) {
       border: '#fda4af',
       badge: code || 'ARTS',
       accent: '#be123c',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Fraunces', serif",
     };
   }
 
-  // 10. Law -> BURGUNDY
+  // 10. Law -> BURGUNDY with Fraunces (Judicial Gravitas & Legal Heritage)
   if (category.includes('law') || code.includes('LLB') || code.includes('LLM')) {
     return {
       bg: '#fdf2f8',
@@ -574,11 +574,11 @@ function getDeptStyle(department) {
       border: '#fbcfe8',
       badge: code || 'LAW',
       accent: '#881337',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Fraunces', serif",
     };
   }
 
-  // 11. Pharmacy -> SKY BLUE
+  // 11. Pharmacy -> SKY BLUE with DM Sans (Clean Clinical Pharmacology)
   if (category.includes('pharmacy') || code.includes('PHARM')) {
     return {
       bg: '#f0f9ff',
@@ -590,7 +590,7 @@ function getDeptStyle(department) {
     };
   }
 
-  // 12. Agriculture -> OLIVE LIME
+  // 12. Agriculture -> OLIVE LIME with Lexend (Agronomy & Bio-sciences)
   if (category.includes('agriculture') || code.includes('AGRI')) {
     return {
       bg: '#f7fee7',
@@ -598,11 +598,11 @@ function getDeptStyle(department) {
       border: '#bef264',
       badge: code || 'AGRI',
       accent: '#4d7c0f',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Lexend', sans-serif",
     };
   }
 
-  // 13. Health & Allied -> CORAL PINK
+  // 13. Health & Allied -> CORAL PINK with Outfit (Vital Medical Healthcare)
   if (category.includes('health') || code.includes('NURS') || code.includes('BPT')) {
     return {
       bg: '#fff1f2',
@@ -610,11 +610,11 @@ function getDeptStyle(department) {
       border: '#fecdd3',
       badge: code || 'HLTH',
       accent: '#e11d48',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Outfit', sans-serif",
     };
   }
 
-  // 14. Education -> WARM AMBER
+  // 14. Education -> WARM AMBER with Plus Jakarta Sans (Pedagogical Clarity)
   if (category.includes('education') || code.includes('BED') || code.includes('MED')) {
     return {
       bg: '#fffbeb',
@@ -622,11 +622,11 @@ function getDeptStyle(department) {
       border: '#fcd34d',
       badge: code || 'EDU',
       accent: '#b45309',
-      fontFamily: "'DM Sans', sans-serif",
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
     };
   }
 
-  // 15. Fallback / Miscellaneous / Campus Services -> SLATE
+  // 15. Fallback / Miscellaneous / Campus Services -> SLATE with DM Sans
   return {
     bg: '#f8fafc',
     color: '#475569',
@@ -795,7 +795,7 @@ function DepartmentSearchSelect({
               >
                 {selectedStyle.badge}
               </span>
-              <span className="dept-selected-name" style={{ color: selectedStyle.color, fontWeight: 700 }}>
+              <span className="dept-selected-name" style={{ color: selectedStyle.color, fontWeight: 700, fontFamily: selectedStyle.fontFamily }}>
                 {selectedDepartment.name}
               </span>
             </>
@@ -883,7 +883,7 @@ function DepartmentSearchSelect({
                         >
                           {style.badge}
                         </span>
-                        <span className="dept-option-name" style={{ color: isSelected ? style.accent : undefined }}>
+                        <span className="dept-option-name" style={{ color: isSelected ? style.accent : undefined, fontFamily: style.fontFamily, fontWeight: isSelected ? 700 : 600 }}>
                           {dept.name}
                         </span>
                         <span className="dept-option-cat">{cat}</span>
@@ -1028,12 +1028,66 @@ function getDepartmentYearConfig(department) {
 }
 
 const YEAR_DETAILS = {
-  1: { badge: 'YEAR 1', bg: '#f0f9ff', color: '#0284c7', border: '#bae6fd', title: '1st Year', sub: 'Fresher • Initial Enrollment & Foundations' },
-  2: { badge: 'YEAR 2', bg: '#eef2ff', color: '#6366f1', border: '#c7d2fe', title: '2nd Year', sub: 'Sophomore • Core Domain Coursework' },
-  3: { badge: 'YEAR 3', bg: '#fffbeb', color: '#d97706', border: '#fde68a', title: '3rd Year', sub: 'Pre-Final • Advanced Projects & Labs' },
-  4: { badge: 'YEAR 4', bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0', title: '4th Year', sub: 'Final Year • Capstone & Campus Placements' },
-  5: { badge: 'YEAR 5', bg: '#faf5ff', color: '#9333ea', border: '#e9d5ff', title: '5th Year', sub: 'Finalist • Integrated Professional Practice' },
-  6: { badge: 'YEAR 6', bg: '#fff1f2', color: '#e11d48', border: '#fecdd3', title: '6th Year', sub: 'Doctoral Residency • Hospital Internship' },
+  1: {
+    badge: 'YEAR 1',
+    bg: '#f0f9ff',
+    color: '#0284c7',
+    border: '#bae6fd',
+    title: '1st Year',
+    sub: 'Fresher • Initial Enrollment & Foundations',
+    fontFamily: "'Lexend', sans-serif",
+    badgeFont: "'Space Grotesk', monospace",
+  },
+  2: {
+    badge: 'YEAR 2',
+    bg: '#eef2ff',
+    color: '#6366f1',
+    border: '#c7d2fe',
+    title: '2nd Year',
+    sub: 'Sophomore • Core Domain Coursework',
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    badgeFont: "'Space Grotesk', monospace",
+  },
+  3: {
+    badge: 'YEAR 3',
+    bg: '#fffbeb',
+    color: '#d97706',
+    border: '#fde68a',
+    title: '3rd Year',
+    sub: 'Pre-Final • Advanced Projects & Labs',
+    fontFamily: "'Outfit', sans-serif",
+    badgeFont: "'Space Grotesk', monospace",
+  },
+  4: {
+    badge: 'YEAR 4',
+    bg: '#f0fdf4',
+    color: '#16a34a',
+    border: '#bbf7d0',
+    title: '4th Year',
+    sub: 'Final Year • Capstone & Campus Placements',
+    fontFamily: "'Syne', sans-serif",
+    badgeFont: "'Space Grotesk', monospace",
+  },
+  5: {
+    badge: 'YEAR 5',
+    bg: '#faf5ff',
+    color: '#9333ea',
+    border: '#e9d5ff',
+    title: '5th Year',
+    sub: 'Finalist • Integrated Professional Practice',
+    fontFamily: "'Epilogue', sans-serif",
+    badgeFont: "'Space Grotesk', monospace",
+  },
+  6: {
+    badge: 'YEAR 6',
+    bg: '#fff1f2',
+    color: '#e11d48',
+    border: '#fecdd3',
+    title: '6th Year',
+    sub: 'Doctoral Residency • Hospital Internship',
+    fontFamily: "'Fraunces', serif",
+    badgeFont: "'Space Grotesk', monospace",
+  },
 };
 
 function getYearSuffix(y) {
@@ -1121,15 +1175,15 @@ function YearSelect({
                   borderColor: selectedDetail.border,
                   borderWidth: 1,
                   borderStyle: 'solid',
-                  fontFamily: "'Space Grotesk', monospace",
+                  fontFamily: selectedDetail.badgeFont || "'Space Grotesk', monospace",
                   fontWeight: 800,
                   letterSpacing: '0.4px',
                 }}
               >
                 {selectedDetail.badge} • SEM {selectedSemester}
               </span>
-              <span className="year-selected-name" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                {selectedDetail.title} • {selectedSemester === 1 ? '1st Sem' : '2nd Sem'} <small style={{ color: '#64748b', fontWeight: 500 }}>(Sem {selectedCumulativeSem})</small>
+              <span className="year-selected-name" style={{ fontFamily: selectedDetail.fontFamily, fontWeight: 700 }}>
+                {selectedDetail.title} • {selectedSemester === 1 ? '1st Sem' : '2nd Sem'} <small style={{ color: '#64748b', fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>(Sem {selectedCumulativeSem})</small>
               </span>
             </>
           ) : (
@@ -1173,6 +1227,8 @@ function YearSelect({
                 border: '#cbd5e1',
                 title: `${y}${getYearSuffix(y)} Year`,
                 sub: `Academic Year ${y}`,
+                fontFamily: "'Outfit', sans-serif",
+                badgeFont: "'Space Grotesk', monospace",
               };
               const isExpanded = expandedYear === y;
               const isThisYearSelected = selectedYear === y;
@@ -1203,7 +1259,7 @@ function YearSelect({
                         borderColor: detail.border,
                         borderWidth: 1,
                         borderStyle: 'solid',
-                        fontFamily: "'Space Grotesk', monospace",
+                        fontFamily: detail.badgeFont || "'Space Grotesk', monospace",
                         fontWeight: 800,
                       }}
                     >
@@ -1213,7 +1269,7 @@ function YearSelect({
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span
                           className="year-option-title"
-                          style={{ color: isThisYearSelected ? detail.color : '#0f172a' }}
+                          style={{ color: isThisYearSelected ? detail.color : '#0f172a', fontFamily: detail.fontFamily, fontWeight: 700 }}
                         >
                           {detail.title}
                         </span>
@@ -1227,13 +1283,14 @@ function YearSelect({
                               border: `1px solid ${detail.border}`,
                               padding: '1px 6px',
                               borderRadius: 4,
+                              fontFamily: "'Space Grotesk', sans-serif",
                             }}
                           >
                             {selectedSemester === 1 ? '1st Sem' : '2nd Sem'} (Sem {selectedCumulativeSem})
                           </span>
                         )}
                       </div>
-                      <span className="year-option-sub">
+                      <span className="year-option-sub" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                         {detail.sub}
                       </span>
                     </div>
@@ -1271,16 +1328,16 @@ function YearSelect({
                               backgroundColor: detail.bg,
                               color: detail.color,
                               border: `1px solid ${detail.border}`,
-                              fontFamily: "'Space Grotesk', monospace",
+                              fontFamily: "'JetBrains Mono', monospace",
                             }}
                           >
                             SEM {semA}
                           </span>
                           <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: isSem1Selected ? detail.color : '#1e293b' }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: isSem1Selected ? detail.color : '#1e293b', fontFamily: detail.fontFamily }}>
                               {detail.title} • 1st Semester
                             </span>
-                            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500 }}>
+                            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                               Odd Semester (Autumn Session)
                             </span>
                           </div>
@@ -1310,16 +1367,16 @@ function YearSelect({
                               backgroundColor: detail.bg,
                               color: detail.color,
                               border: `1px solid ${detail.border}`,
-                              fontFamily: "'Space Grotesk', monospace",
+                              fontFamily: "'JetBrains Mono', monospace",
                             }}
                           >
                             SEM {semB}
                           </span>
                           <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: isSem2Selected ? detail.color : '#1e293b' }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: isSem2Selected ? detail.color : '#1e293b', fontFamily: detail.fontFamily }}>
                               {detail.title} • 2nd Semester
                             </span>
-                            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500 }}>
+                            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 500, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                               Even Semester (Spring Session)
                             </span>
                           </div>
@@ -1448,22 +1505,24 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
             <input type="hidden" name="semester" value={selectedSemester || 1} required />
             {selectedYear && (
               <div className="sem-switcher-row">
-                <span className="sem-switcher-label">SEMESTER:</span>
+                <span className="sem-switcher-label" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>SEMESTER:</span>
                 <button
                   type="button"
                   className={`sem-toggle-btn ${selectedSemester === 1 ? 'active' : ''}`}
                   onClick={() => setSelectedSemester(1)}
                   title="Switch to 1st Semester"
+                  style={{ fontFamily: (YEAR_DETAILS[Number(selectedYear)]?.fontFamily) || "'Plus Jakarta Sans', sans-serif" }}
                 >
-                  <span>✦</span> {getYearSuffix(Number(selectedYear))} Year 1st Sem
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>✦</span> {getYearSuffix(Number(selectedYear))} Year 1st Sem
                 </button>
                 <button
                   type="button"
                   className={`sem-toggle-btn ${selectedSemester === 2 ? 'active' : ''}`}
                   onClick={() => setSelectedSemester(2)}
                   title="Switch to 2nd Semester"
+                  style={{ fontFamily: (YEAR_DETAILS[Number(selectedYear)]?.fontFamily) || "'Plus Jakarta Sans', sans-serif" }}
                 >
-                  <span>✦</span> {getYearSuffix(Number(selectedYear))} Year 2nd Sem
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>✦</span> {getYearSuffix(Number(selectedYear))} Year 2nd Sem
                 </button>
               </div>
             )}
