@@ -22,8 +22,21 @@ app.use(helmet({
     },
   },
 }));
-app.use(cors({ origin: config.clientOrigin }));
+app.use(cors({
+  origin: config.clientOrigin === '*' ? true : (config.clientOrigin || true),
+  credentials: true,
+}));
 app.use(express.json({ limit: '1mb' }));
+
+app.use((req, _res, next) => {
+  if (!req.url.startsWith('/api') && !req.url.startsWith('/robots.txt') && !req.url.startsWith('/sitemap.xml')) {
+    const isStatic = req.url.startsWith('/assets') || req.url === '/' || req.url === '/favicon.ico';
+    if (!isStatic && (req.url.startsWith('/auth') || req.url.startsWith('/complaints') || req.url.startsWith('/departments') || req.url.startsWith('/dashboard') || req.url.startsWith('/categories') || req.url.startsWith('/notifications') || req.url.startsWith('/staff') || req.url.startsWith('/health'))) {
+      req.url = `/api${req.url}`;
+    }
+  }
+  next();
+});
 
 const asyncRoute = (handler) => (request, response, next) => Promise.resolve(handler(request, response, next)).catch(next);
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many attempts. Wait a few minutes and try again.' } });
@@ -369,4 +382,9 @@ app.use((error, _request, response, _next) => {
   response.status(500).json({ error: 'Something went wrong. Please try again.' });
 });
 
-app.listen(config.port, () => console.log(`API listening at http://localhost:${config.port}`));
+export default app;
+export { app };
+
+if (process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'test') {
+  app.listen(config.port, () => console.log(`API listening at http://localhost:${config.port}`));
+}

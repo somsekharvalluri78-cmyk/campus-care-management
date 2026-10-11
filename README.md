@@ -123,14 +123,49 @@ Use these pre-seeded accounts for testing each role:
 
 ---
 
-## ☁️ Deploy to the Cloud (Free Hosting on Render)
+## ☁️ Lifetime Free Cloud Deployment (100% Free Forever)
 
-This repository includes a `render.yaml` blueprint for 1-click deployment on Render:
+This project is configured to run on **100% Lifetime Free** platforms without 30-day database expirations or paid requirements.
 
-1. Sign up or log into [Render.com](https://render.com).
-2. Click **New +** ➔ **Blueprint**.
-3. Connect your GitHub repository `somsekharvalluri78-cmyk/campus-care-management`.
-4. Render will automatically read `render.yaml`, provision a free PostgreSQL database, build the frontend, run database setup, and start the app!
+### 1. Database: Neon PostgreSQL (Lifetime Free, No 30-Day Expiry)
+Unlike Render's temporary 30-day PostgreSQL databases, [Neon](https://neon.tech) offers a permanent, generous free PostgreSQL tier that never expires:
+1. Sign up for free at [neon.tech](https://neon.tech).
+2. Create a project (e.g. `campus-care`).
+3. Copy the pooled connection string (`DATABASE_URL`).
+4. Apply schema and seed data once:
+   ```bash
+   npm run db:setup
+   npm run db:seed
+   ```
+
+### 2. Recommended Hosting: Vercel Full-Stack (Frontend + Serverless API)
+Deploy the entire application (React + Express API) on Vercel under a single domain:
+1. Go to [vercel.com](https://vercel.com) and import your GitHub repository `somsekharvalluri78-cmyk/campus-care-management`.
+2. In **Environment Variables**, add:
+   - `DATABASE_URL`: Your Neon PostgreSQL connection string.
+   - `JWT_SECRET`: Any random secure key (or leave default).
+3. Click **Deploy**. Both the frontend and `/api` backend run under your `.vercel.app` URL with zero sleeping delays.
+
+### 3. Alternative Hosting: Koyeb (Eco Free Tier)
+Deploy as a persistent Node.js web service without sleeping:
+1. Sign up at [koyeb.com](https://www.koyeb.com).
+2. Create a **Web Service** connected to your GitHub repository.
+3. Build command: `npm run build`
+4. Run command: `npm start`
+5. Add environment variable `DATABASE_URL` pointing to your Neon database.
+
+### 4. Alternative: Render Web Service (Using Neon DB)
+If you prefer Render:
+1. Do **not** use Render's 30-day PostgreSQL database.
+2. Create a **Web Service** on [Render.com](https://render.com).
+3. Build Command: `npm ci --include=dev && npm run build`
+4. Start Command: `npm start`
+5. Add environment variable `DATABASE_URL` set to your Neon PostgreSQL URL.
+
+### 5. Instant Expo Backup (Localhost + Free Tunnel)
+If presenting at a college expo or project review:
+1. Run `npm run build && npm start`
+2. In a second terminal, run `npm run tunnel` to get an instant, rock-solid public HTTPS link with zero cloud dependency.
 
 ---
 
