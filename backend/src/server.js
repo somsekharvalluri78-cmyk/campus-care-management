@@ -70,6 +70,10 @@ const userSelect = `SELECT u.id, u.login_id AS "loginId", u.email, u.full_name A
   u.department_id AS "departmentId", d.name AS department, u.phone, u.year, u.semester, u.section, u.designation
   FROM users u LEFT JOIN departments d ON d.id = u.department_id`;
 
+app.get(['/api', '/api/'], (_request, response) => {
+  response.json({ status: 'ok', service: 'Campus Care Management API', timestamp: new Date().toISOString() });
+});
+
 app.get('/api/health', asyncRoute(async (_request, response) => {
   await pool.query('SELECT 1');
   response.json({ status: 'ok' });
