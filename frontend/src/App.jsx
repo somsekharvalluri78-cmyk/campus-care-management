@@ -6,6 +6,7 @@ import {
   RotateCcw, Search, Settings2, ShieldAlert, ShieldCheck, Siren, Sparkles, Trash2, UserPen, UserRound, Users, X,
 } from 'lucide-react';
 import MorphOrb from './components/ui/ai-thiking-orb-and-input';
+import MetroHero from './components/ui/scroll-locked-video-hero';
 import { ALL_DEPARTMENTS } from './departmentsData.js';
 
 const API = import.meta.env.VITE_API_URL || '/api';
@@ -403,17 +404,37 @@ function App() {
 
   if (loading) return <div className="loading-screen"><span className="loader" />Connecting to Campus Care</div>;
   if (!token || !user) return (
-    <LoginPage
-      identifier={loginIdentifier}
-      password={loginPassword}
-      error={error}
-      pending={loginPending}
-      onIdentifier={setLoginIdentifier}
-      onPassword={setLoginPassword}
-      onSubmit={signIn}
-      onDemo={import.meta.env.DEV ? (identifier) => { setLoginIdentifier(identifier); setLoginPassword(DEMO_PASSWORD); setError(''); } : undefined}
-      onRegister={registerStudent}
-    />
+    <div className="landing-experience" style={{ width: '100%', position: 'relative' }}>
+      <MetroHero
+        videoSrc="/campus-intro.webm"
+        posterSrc="/campus-hero-poster.jpg"
+        title="A BETTER CAMPUS STARTS WITH BEING HEARD."
+        subtitle="Every concern matters. Every voice deserves attention. Together, we can build a safer, smarter, and more supportive campus."
+        scrollHint="SCROLL TO EXPLORE"
+        tagline="YOUR CAMPUS. YOUR VOICE. OUR COMMITMENT."
+        onComplete={() => {
+          const el = document.getElementById('login-section');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onSkip={() => {
+          const el = document.getElementById('login-section');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }}
+      />
+      <div id="login-section" style={{ width: '100%', position: 'relative' }}>
+        <LoginPage
+          identifier={loginIdentifier}
+          password={loginPassword}
+          error={error}
+          pending={loginPending}
+          onIdentifier={setLoginIdentifier}
+          onPassword={setLoginPassword}
+          onSubmit={signIn}
+          onDemo={import.meta.env.DEV ? (identifier) => { setLoginIdentifier(identifier); setLoginPassword(DEMO_PASSWORD); setError(''); } : undefined}
+          onRegister={registerStudent}
+        />
+      </div>
+    </div>
   );
 
   const visibleComplaints = filtered.slice(0, activeView === 'overview' ? 5 : 100);

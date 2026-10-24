@@ -41,8 +41,32 @@ button:disabled { opacity: .65; cursor: wait; }
 .brand-mark span { font-family: 'Newsreader', Georgia, serif; font-size: 24px; font-style: italic; line-height: 1; transform: rotate(3deg) translateY(-1px); }
 
 .login-screen { min-height: 100vh; display: grid; grid-template-columns: minmax(420px, 1fr) minmax(480px, .92fr); background: #fbfcf9; }
-.login-art { min-height: 100vh; padding: 36px 46px 30px; display: flex; flex-direction: column; position: relative; overflow: hidden; color: #f3f6ef; background: #176c64; }
-.login-art::before { position: absolute; content: ''; inset: 0; opacity: .2; background-image: radial-gradient(rgba(225, 236, 221, .32) .65px, transparent .65px); background-size: 15px 15px; mask-image: linear-gradient(125deg, #000 4%, transparent 55%); pointer-events: none; }
+.login-art {
+  min-height: 100vh;
+  padding: 36px 46px 30px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  color: #f3f6ef;
+  background-color: #0b2e2b;
+  background-image: 
+    linear-gradient(135deg, rgba(11, 46, 43, 0.84) 0%, rgba(13, 60, 54, 0.74) 40%, rgba(5, 22, 20, 0.92) 100%),
+    url('/campus-wallpaper.jpg');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+.login-art::before {
+  position: absolute;
+  content: '';
+  inset: 0;
+  opacity: .3;
+  background-image: radial-gradient(rgba(225, 236, 221, .32) .85px, transparent .85px);
+  background-size: 16px 16px;
+  mask-image: radial-gradient(circle at 40% 50%, #000 15%, transparent 75%);
+  pointer-events: none;
+}
 .login-art-top, .art-copy, .art-footer { position: relative; z-index: 1; }
 .login-art-top { display: flex; align-items: center; justify-content: space-between; }
 .brand-lockup-light { color: #f1f4ee; }
