@@ -5,6 +5,8 @@ import {
   FilePlus2, Filter, Flame, HeartPulse, KeyRound, LayoutDashboard, Lock, LogOut, Menu,
   RotateCcw, Search, Settings2, ShieldAlert, ShieldCheck, Siren, Sparkles, Trash2, UserPen, UserRound, Users, X,
 } from 'lucide-react';
+import MorphOrb from './components/ui/ai-thiking-orb-and-input';
+import { ALL_DEPARTMENTS } from './departmentsData.js';
 
 const API = import.meta.env.VITE_API_URL || '/api';
 const DEMO_PASSWORD = 'CampusDemo2026!';
@@ -1136,6 +1138,97 @@ function matchesDeptSearch(dept, query) {
   return false;
 }
 
+function findAiDepartmentMatch(query, departments = []) {
+  if (!query || !departments.length) return null;
+  const q = query.toLowerCase().trim();
+  const cleanQ = q.replace(/[^a-z0-9\s]/g, ' ');
+
+  // 1. Direct exact code match
+  const exactCode = departments.find(
+    (d) => (d.code || '').toLowerCase() === q || (d.code || '').toLowerCase() === cleanQ.trim()
+  );
+  if (exactCode) return exactCode;
+
+  // 2. Domain keywords mapping
+  const DOMAIN_KEYWORDS = {
+    ai: ['artificial intelligence', 'machine learning', 'aiml', 'data science', 'deep learning'],
+    ml: ['machine learning', 'artificial intelligence', 'aiml', 'data science'],
+    data: ['data science', 'data analytics', 'big data', 'business analytics'],
+    cloud: ['cloud computing', 'cyber security', 'information technology'],
+    security: ['cyber security', 'information security', 'network security'],
+    web: ['computer science', 'information technology', 'software'],
+    software: ['computer science', 'information technology', 'software engineering'],
+    hardware: ['computer science', 'electronics', 'vlsi', 'microelectronics'],
+    robot: ['robotics', 'mechatronics', 'automation', 'mechanical'],
+    drone: ['aerospace', 'aeronautical', 'robotics'],
+    aero: ['aeronautical', 'aerospace', 'aviation'],
+    chip: ['vlsi', 'microelectronics', 'electronics & communication'],
+    circuit: ['electrical & electronics', 'electronics & communication', 'vlsi'],
+    power: ['electrical & electronics', 'power engineering', 'energy'],
+    electric: ['electrical', 'electric vehicle', 'eee'],
+    solar: ['renewable energy', 'electrical', 'energy'],
+    construction: ['civil engineering', 'structural', 'infrastructure', 'building'],
+    bridge: ['civil engineering', 'structural'],
+    building: ['civil engineering', 'architecture'],
+    machine: ['mechanical engineering', 'mechatronics', 'automobile'],
+    vehicle: ['automobile engineering', 'mechanical', 'automotive'],
+    car: ['automobile engineering', 'mechanical'],
+    medicine: ['pharmacy', 'pharm.d', 'b.pharm', 'biomedical'],
+    drug: ['pharmacy', 'pharmaceutics', 'pharm.d', 'pharmacology'],
+    pharma: ['pharmacy', 'pharm.d', 'b.pharm', 'pharmaceutical'],
+    bio: ['biotechnology', 'biomedical', 'bioinformatics'],
+    genetics: ['biotechnology', 'bioengineering', 'biomedical'],
+    business: ['management', 'mba', 'administration'],
+    finance: ['finance', 'management', 'mba', 'banking'],
+    marketing: ['marketing', 'management', 'mba'],
+    library: ['library', 'information science'],
+    chem: ['chemical engineering', 'petroleum', 'petrochemical'],
+  };
+
+  const scored = departments.map((dept) => {
+    let score = 0;
+    const name = (dept.name || '').toLowerCase();
+    const code = (dept.code || '').toLowerCase();
+    const cat = (dept.category || '').toLowerCase();
+
+    if (code === q) score += 120;
+    if (name === q) score += 100;
+    if (name.includes(q)) score += 50;
+    if (code.includes(q)) score += 40;
+    if (cat.includes(q)) score += 20;
+
+    const words = cleanQ.split(/\s+/).filter((w) => w.length > 2);
+    for (const w of words) {
+      if (name.includes(w)) score += 20;
+      if (code.includes(w)) score += 25;
+      if (cat.includes(w)) score += 10;
+    }
+
+    for (const [key, targets] of Object.entries(DOMAIN_KEYWORDS)) {
+      if (cleanQ.includes(key)) {
+        for (const target of targets) {
+          if (name.includes(target)) score += 35;
+          if (code.includes(target)) score += 30;
+          if (cat.includes(target)) score += 15;
+        }
+      }
+    }
+
+    for (const [shortcut, targets] of Object.entries(SHORTCUT_MAP || {})) {
+      if (cleanQ.includes(shortcut)) {
+        for (const target of targets) {
+          if (name.includes(target) || code.includes(target)) score += 35;
+        }
+      }
+    }
+
+    return { dept, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0]?.score > 0 ? scored[0].dept : departments[0] || null;
+}
+
 function DepartmentSearchSelect({
   departments = [],
   value,
@@ -1145,6 +1238,7 @@ function DepartmentSearchSelect({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [aiModalOpen, setAiModalOpen] = useState(false);
   const containerRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -1202,138 +1296,288 @@ function DepartmentSearchSelect({
   }
 
   return (
-    <div
-      className={`dept-select-wrap ${isOpen ? 'dept-select-open' : ''}`}
-      ref={containerRef}
-      onKeyDown={handleKeyDown}
-    >
-      <button
-        type="button"
-        className={`dept-select-trigger ${disabled ? 'disabled' : ''}`}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
+    <>
+      <div
+        className={`dept-select-wrap ${isOpen ? 'dept-select-open' : ''}`}
+        ref={containerRef}
+        onKeyDown={handleKeyDown}
       >
-        <div className="dept-selected-content">
-          {selectedDepartment ? (
-            <>
-              <span
-                className="dept-badge"
-                style={{
-                  backgroundColor: selectedStyle.bg,
-                  color: selectedStyle.color,
-                  borderColor: selectedStyle.border,
-                  borderWidth: 1,
-                  borderStyle: 'solid',
-                  fontFamily: selectedStyle.fontFamily,
-                }}
-              >
-                {selectedStyle.badge}
+        <button
+          type="button"
+          className={`dept-select-trigger ${disabled ? 'disabled' : ''}`}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+        >
+          <div className="dept-selected-content">
+            {selectedDepartment ? (
+              <>
+                <span
+                  className="dept-badge"
+                  style={{
+                    backgroundColor: selectedStyle.bg,
+                    color: selectedStyle.color,
+                    borderColor: selectedStyle.border,
+                    borderWidth: 1,
+                    borderStyle: 'solid',
+                    fontFamily: selectedStyle.fontFamily,
+                  }}
+                >
+                  {selectedStyle.badge}
+                </span>
+                <span className="dept-selected-name" style={{ color: selectedStyle.color, fontWeight: 700, fontFamily: selectedStyle.fontFamily }}>
+                  {selectedDepartment.name}
+                </span>
+              </>
+            ) : (
+              <span className="dept-placeholder">
+                <Search size={14} style={{ opacity: 0.6 }} />
+                {loading ? 'Loading all 169 departments…' : 'Search or choose department (e.g. CSE, EEE, Mech)…'}
               </span>
-              <span className="dept-selected-name" style={{ color: selectedStyle.color, fontWeight: 700, fontFamily: selectedStyle.fontFamily }}>
-                {selectedDepartment.name}
-              </span>
-            </>
-          ) : (
-            <span className="dept-placeholder">
-              <Search size={14} style={{ opacity: 0.6 }} />
-              {loading ? 'Loading all 169 departments…' : 'Search or choose department (e.g. CSE, EEE, Mech)…'}
-            </span>
-          )}
-        </div>
-        <ChevronDown size={15} style={{ opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
-      </button>
+            )}
+          </div>
+          <div className="dept-trigger-actions">
+            <button
+              type="button"
+              className="dept-ai-badge-btn"
+              title="Open AI Department Advisor (Thinking Orb)"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAiModalOpen(true);
+              }}
+            >
+              <Sparkles size={13} />
+              <span>AI Orb</span>
+            </button>
+            <ChevronDown size={15} style={{ opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+          </div>
+        </button>
 
-      {isOpen && (
-        <div className="dept-dropdown-panel" role="listbox">
-          <div className="dept-search-box">
-            <Search size={14} style={{ color: '#64748b', flexShrink: 0 }} />
-            <input
-              ref={inputRef}
-              type="text"
-              className="dept-search-input"
-              placeholder="Type shortcut (CSE, EEE, ECE, ME, CE) or branch name…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search department"
-            />
-            {search && (
+        {isOpen && (
+          <div className="dept-dropdown-panel" role="listbox">
+            {/* AI Orb Banner at top of dropdown */}
+            <div className="dept-ai-banner">
+              <div className="dept-ai-banner-content">
+                <Sparkles size={15} className="dept-spark-glow" />
+                <div>
+                  <strong>Need guidance? Ask AI Thinking Orb</strong>
+                  <small>Type your passion; the Orb matches all 169 branches</small>
+                </div>
+              </div>
               <button
                 type="button"
-                className="dept-clear-btn"
-                onClick={() => setSearch('')}
-                title="Clear search"
+                className="dept-ai-launch-btn"
+                onClick={() => {
+                  setIsOpen(false);
+                  setAiModalOpen(true);
+                }}
               >
-                <X size={13} />
+                Launch Orb
               </button>
-            )}
-          </div>
+            </div>
 
-          <div className="dept-count-badge">
-            <span>
-              {search
-                ? `Found ${filteredDepartments.length} matching branch${filteredDepartments.length === 1 ? '' : 'es'}`
-                : `All 169 departments (${departments.length} available)`}
-            </span>
-            <small style={{ color: '#94a3b8', fontWeight: 'normal' }}>
-              Instant filter active
-            </small>
-          </div>
+            <div className="dept-search-box">
+              <Search size={14} style={{ color: '#64748b', flexShrink: 0 }} />
+              <input
+                ref={inputRef}
+                type="text"
+                className="dept-search-input"
+                placeholder="Type shortcut (CSE, EEE, ECE, ME, CE) or branch name…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search department"
+              />
+              {search && (
+                <button
+                  type="button"
+                  className="dept-clear-btn"
+                  onClick={() => setSearch('')}
+                  title="Clear search"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
 
-          <div className="dept-options-list">
-            {filteredDepartments.length === 0 ? (
-              <div className="dept-empty">
-                <p>No department found matching &ldquo;<strong>{search}</strong>&rdquo;</p>
-                <small style={{ color: '#94a3b8' }}>Try searching by shortcut like CSE, EEE, ME, CE, or MBA.</small>
-              </div>
-            ) : (
-              Object.entries(groupedDepartments).map(([cat, list]) => (
-                <div key={cat} className="dept-group">
-                  <div className="dept-group-header">
-                    <span>{cat}</span>
-                    <span style={{ fontSize: 9, opacity: 0.7, fontWeight: 'normal' }}>({list.length})</span>
-                  </div>
-                  {list.map((dept) => {
-                    const isSelected = String(dept.id) === String(value);
-                    const style = getDeptStyle(dept);
-                    return (
-                      <button
-                        key={dept.id}
-                        type="button"
-                        role="option"
-                        aria-selected={isSelected}
-                        className={`dept-option ${isSelected ? 'selected' : ''}`}
-                        onClick={() => handleSelect(dept)}
-                      >
-                        <span
-                          className="dept-badge"
-                          style={{
-                            backgroundColor: style.bg,
-                            color: style.color,
-                            borderColor: style.border,
-                            borderWidth: 1,
-                            borderStyle: 'solid',
-                            fontFamily: style.fontFamily,
-                          }}
-                        >
-                          {style.badge}
-                        </span>
-                        <span className="dept-option-name" style={{ color: isSelected ? style.accent : undefined, fontFamily: style.fontFamily, fontWeight: isSelected ? 700 : 600 }}>
-                          {dept.name}
-                        </span>
-                        <span className="dept-option-cat">{cat}</span>
-                        {isSelected && <Check size={14} style={{ color: style.accent, marginLeft: 4 }} />}
-                      </button>
-                    );
-                  })}
+            <div className="dept-count-badge">
+              <span>
+                {search
+                  ? `Found ${filteredDepartments.length} matching branch${filteredDepartments.length === 1 ? '' : 'es'}`
+                  : `All 169 departments (${departments.length} available)`}
+              </span>
+              <small style={{ color: '#94a3b8', fontWeight: 'normal' }}>
+                Instant filter active
+              </small>
+            </div>
+
+            <div className="dept-options-list">
+              {filteredDepartments.length === 0 ? (
+                <div className="dept-empty">
+                  <p>No department found matching &ldquo;<strong>{search}</strong>&rdquo;</p>
+                  <small style={{ color: '#94a3b8' }}>Try searching by shortcut like CSE, EEE, ME, CE, or MBA.</small>
                 </div>
-              ))
-            )}
+              ) : (
+                Object.entries(groupedDepartments).map(([cat, list]) => (
+                  <div key={cat} className="dept-group">
+                    <div className="dept-group-header">
+                      <span>{cat}</span>
+                      <span style={{ fontSize: 9, opacity: 0.7, fontWeight: 'normal' }}>({list.length})</span>
+                    </div>
+                    {list.map((dept) => {
+                      const isSelected = String(dept.id) === String(value);
+                      const style = getDeptStyle(dept);
+                      return (
+                        <button
+                          key={dept.id}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          className={`dept-option ${isSelected ? 'selected' : ''}`}
+                          onClick={() => handleSelect(dept)}
+                        >
+                          <span
+                            className="dept-badge"
+                            style={{
+                              backgroundColor: style.bg,
+                              color: style.color,
+                              borderColor: style.border,
+                              borderWidth: 1,
+                              borderStyle: 'solid',
+                              fontFamily: style.fontFamily,
+                            }}
+                          >
+                            {style.badge}
+                          </span>
+                          <span className="dept-option-name" style={{ color: isSelected ? style.accent : undefined, fontFamily: style.fontFamily, fontWeight: isSelected ? 700 : 600 }}>
+                            {dept.name}
+                          </span>
+                          <span className="dept-option-cat">{cat}</span>
+                          {isSelected && <Check size={14} style={{ color: style.accent, marginLeft: 4 }} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* AI Department Advisor Modal Featuring MorphOrb */}
+      {aiModalOpen && (
+        <div className="dept-ai-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dept-ai-title">
+          <div className="dept-ai-modal-container">
+            <div className="dept-ai-modal-header">
+              <div className="dept-ai-modal-title-wrap">
+                <div className="dept-ai-spark-circle">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h3 id="dept-ai-title">AI Department Advisor & Thinking Orb</h3>
+                  <p>Type your passion, desired career, or field. The thinking orb evaluates 169 academic departments in real-time.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="dept-ai-modal-close"
+                onClick={() => setAiModalOpen(false)}
+                aria-label="Close AI advisor"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Quick prompt suggestions */}
+            <div className="dept-ai-chips-wrap">
+              <span className="dept-ai-chips-label">Quick Suggestions:</span>
+              <div className="dept-ai-chips-list">
+                {[
+                  "Artificial Intelligence & ML",
+                  "Cyber Security & Cloud",
+                  "Robotics & Mechatronics",
+                  "VLSI & Microelectronics",
+                  "Civil & Structural Engineering",
+                  "Biotechnology & Genetics",
+                  "Doctor of Pharmacy (Pharm.D)",
+                  "MBA & Business Analytics",
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    className="dept-ai-chip-pill"
+                    onClick={() => {
+                      const match = findAiDepartmentMatch(chip, departments);
+                      if (match) {
+                        onChange(match.id);
+                      }
+                    }}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* AI Thinking Orb Component */}
+            <div className="dept-ai-orb-wrapper">
+              <MorphOrb
+                placeholder="Search any department…"
+                speed={1}
+                minThinkMs={2800}
+                onSubmit={async (promptText) => {
+                  const match = findAiDepartmentMatch(promptText, departments);
+                  if (match) {
+                    onChange(match.id);
+                    return `Recommended Program: ${match.name} [Code: ${match.code}] under ${match.category || 'Academic Degree'}. This department has been auto-selected for your profile!`;
+                  }
+                  return `Could not find an exact match for "${promptText}". Try branch shortcuts like CSE, EEE, ECE, Mech, or Civil.`;
+                }}
+              />
+            </div>
+
+            {/* Live Selected Department Bar */}
+            <div className="dept-ai-modal-footer">
+              <div className="dept-ai-footer-selection">
+                <span className="dept-ai-footer-label">Selected Department:</span>
+                {selectedDepartment ? (
+                  <div className="dept-ai-selected-preview">
+                    <span
+                      className="dept-badge"
+                      style={{
+                        backgroundColor: selectedStyle.bg,
+                        color: selectedStyle.color,
+                        borderColor: selectedStyle.border,
+                        borderWidth: 1,
+                        borderStyle: 'solid',
+                        fontFamily: selectedStyle.fontFamily,
+                      }}
+                    >
+                      {selectedStyle.badge}
+                    </span>
+                    <span className="dept-ai-selected-title" style={{ color: selectedStyle.color, fontFamily: selectedStyle.fontFamily }}>
+                      {selectedDepartment.name}
+                    </span>
+                    <span className="dept-ai-selected-cat">({selectedDepartment.category})</span>
+                  </div>
+                ) : (
+                  <span className="dept-ai-none-selected">No department chosen yet. Ask the orb above!</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="button-primary dept-ai-confirm-btn"
+                onClick={() => setAiModalOpen(false)}
+              >
+                <Check size={16} />
+                Confirm & Use Department
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -1871,13 +2115,16 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
     setDepartmentError('');
     try {
       const result = await request('/departments', null);
-      setDepartments(result.departments);
+      if (Array.isArray(result.departments) && result.departments.length > 0) {
+        setDepartments(result.departments);
+        return;
+      }
     } catch {
-      setDepartments([]);
-      setDepartmentError('Campus Care cannot reach its database right now. Your registration has not been submitted. Start PostgreSQL, then retry.');
+      // API unavailable; load full embedded 169 department list
     } finally {
       setDepartmentsLoading(false);
     }
+    setDepartments(ALL_DEPARTMENTS);
   }
 
   function submitRegistration(event) {
@@ -3658,12 +3905,16 @@ function EditPersonalDetailsPage({
       setDepartmentsLoading(true);
       try {
         const res = await request('/departments', null);
-        setDepartments(res.departments || []);
+        if (Array.isArray(res.departments) && res.departments.length > 0) {
+          setDepartments(res.departments);
+          return;
+        }
       } catch (e) {
-        console.error('Failed to load departments', e);
+        console.error('Failed to load departments from API, using fallback', e);
       } finally {
         setDepartmentsLoading(false);
       }
+      setDepartments(ALL_DEPARTMENTS);
     }
     loadDepts();
   }, []);
