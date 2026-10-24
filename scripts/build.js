@@ -13,4 +13,10 @@ if (existsSync('frontend/dist')) {
 if (existsSync('dist') && !existsSync('frontend/dist')) {
   cpSync('dist', 'frontend/dist', { recursive: true });
 }
-console.log('Build output verified in dist and frontend/dist.');
+if (existsSync('api')) {
+  cpSync('api', 'dist/api', { recursive: true });
+}
+if (existsSync('backend')) {
+  cpSync('backend', 'dist/backend', { recursive: true });
+}
+console.log('Build output verified in dist and frontend/dist with api and backend mirrored.');
