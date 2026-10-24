@@ -2325,4 +2325,22 @@ button:disabled { opacity: .65; cursor: wait; }
   transform: translateY(-1px);
 }
 
+/* =========================================================
+   CINEMATIC INTRO -> LOGIN STAGE TRANSITION ANIMATION
+   ========================================================= */
+.login-stage-revealed {
+  animation: loginStageFadeIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes loginStageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 

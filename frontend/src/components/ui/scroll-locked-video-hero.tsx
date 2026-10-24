@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { ArrowDown, ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 
 export interface MetroHeroProps {
   videoSrc?: string;
@@ -15,7 +15,6 @@ export interface MetroHeroProps {
   className?: string;
   style?: React.CSSProperties;
   onComplete?: () => void;
-  onSkip?: () => void;
 }
 
 const DEFAULT_VIDEO = "/campus-intro.webm";
@@ -36,14 +35,13 @@ export default function MetroHero({
   posterSrc = DEFAULT_POSTER,
   title = "A BETTER CAMPUS STARTS WITH BEING HEARD.",
   subtitle = "Every concern matters. Every voice deserves attention. Together, we can build a safer, smarter, and more supportive campus.",
-  scrollHint = "SCROLL TO EXPLORE",
+  scrollHint = "SCROLL DOWN TO EXPLORE",
   tagline = "YOUR CAMPUS. YOUR VOICE. OUR COMMITMENT.",
   signature = false,
-  scrubDistance = 2200,
+  scrubDistance = 1800,
   className = "",
   style,
   onComplete,
-  onSkip,
 }: MetroHeroProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -52,31 +50,22 @@ export default function MetroHero({
   const hintRef = useRef<HTMLDivElement>(null);
   const taglineRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const percentBadgeRef = useRef<HTMLSpanElement>(null);
 
   const [ready, setReady] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [activeVideoSrc, setActiveVideoSrc] = useState(videoSrc);
-  const [hasScrolled, setHasScrolled] = useState(false);
+  const [isFullyScrolled, setIsFullyScrolled] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Transition to login
-  const triggerTransition = useCallback(() => {
-    if (onComplete) {
-      onComplete();
-    } else {
-      const loginTarget = document.getElementById("login-section") || document.querySelector(".login-screen");
-      if (loginTarget) {
-        loginTarget.scrollIntoView({ behavior: "smooth" });
+  const triggerCompletion = useCallback(() => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      if (onComplete) {
+        onComplete();
       }
-    }
+    }, 450);
   }, [onComplete]);
-
-  const handleSkipClick = () => {
-    if (onSkip) {
-      onSkip();
-    } else {
-      triggerTransition();
-    }
-  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -94,7 +83,7 @@ export default function MetroHero({
     let isSeeking = false;
     let pendingTime: number | null = null;
     let touchStartY = 0;
-    let hasCompleted = false;
+    let completedTriggered = false;
 
     const onLoadedData = () => {
       duration = video.duration || 0;
@@ -106,7 +95,6 @@ export default function MetroHero({
     };
 
     const onError = () => {
-      // If primary video source failed, try fallback
       if (activeVideoSrc !== FALLBACK_VIDEO) {
         setActiveVideoSrc(FALLBACK_VIDEO);
       } else {
@@ -118,7 +106,7 @@ export default function MetroHero({
     video.addEventListener("loadeddata", onLoadedData);
     video.addEventListener("error", onError);
 
-    // Warm up playback on mobile Safari
+    // Warm up mobile video playback silently
     const kickstartLoad = () => {
       const p = video.play();
       if (p && typeof p.then === "function") {
@@ -150,35 +138,29 @@ export default function MetroHero({
     }
 
     function addDelta(deltaY: number) {
+      // deltaY > 0 means user is scrolling DOWN (moving forward in video)
+      // deltaY < 0 means user is scrolling UP (moving backward in video)
       const next = clamp(targetProgress + deltaY / scrubDistance, 0, 1);
       targetProgress = next;
-      if (targetProgress > 0.005) {
-        setHasScrolled(true);
-      }
 
-      // Safe exit valve: When scrub is at the end (> 0.96) and user keeps scrolling down
-      if (targetProgress >= 0.97 && deltaY > 0 && !hasCompleted) {
-        hasCompleted = true;
-        setTimeout(() => triggerTransition(), 80);
-      } else if (targetProgress < 0.9) {
-        hasCompleted = false;
+      if (targetProgress >= 0.96) {
+        setIsFullyScrolled(true);
+        // Only trigger completion if user has completed the entire scrub AND scrolls down further
+        if (targetProgress >= 0.999 && deltaY > 15 && !completedTriggered) {
+          completedTriggered = true;
+          triggerCompletion();
+        }
+      } else {
+        setIsFullyScrolled(false);
+        completedTriggered = false;
       }
 
       return true;
     }
 
     const onWheel = (e: WheelEvent) => {
-      // Only capture wheel while hero section is in view and not fully scrolled past
-      const rect = section.getBoundingClientRect();
-      const inViewport = rect.top <= 10 && rect.bottom >= window.innerHeight * 0.5;
-
-      if (inViewport && (!hasCompleted || (e.deltaY < 0 && targetProgress > 0.05))) {
-        addDelta(e.deltaY);
-        // Prevent default native scroll only while within active intro scrub
-        if (targetProgress < 0.98 || (targetProgress >= 0.98 && e.deltaY < 0)) {
-          e.preventDefault();
-        }
-      }
+      addDelta(e.deltaY);
+      e.preventDefault();
     };
 
     const onTouchStart = (e: TouchEvent) => {
@@ -186,26 +168,33 @@ export default function MetroHero({
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      const rect = section.getBoundingClientRect();
-      const inViewport = rect.top <= 10 && rect.bottom >= window.innerHeight * 0.5;
+      const y = e.touches[0]?.clientY ?? touchStartY;
+      const deltaY = (touchStartY - y) * 1.6; // touchStartY - y > 0 when swiping finger UP (scrolling DOWN)
+      touchStartY = y;
+      addDelta(deltaY);
+      e.preventDefault();
+    };
 
-      if (inViewport) {
-        const y = e.touches[0]?.clientY ?? touchStartY;
-        const deltaY = touchStartY - y;
-        touchStartY = y;
-
-        if (!hasCompleted || (deltaY < 0 && targetProgress > 0.05)) {
-          addDelta(deltaY);
-          if (targetProgress < 0.98 || (targetProgress >= 0.98 && deltaY < 0)) {
-            e.preventDefault();
-          }
-        }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        addDelta(140);
+        e.preventDefault();
+      } else if (e.key === "PageDown" || e.key === " ") {
+        addDelta(280);
+        e.preventDefault();
+      } else if (e.key === "ArrowUp") {
+        addDelta(-140);
+        e.preventDefault();
+      } else if (e.key === "PageUp") {
+        addDelta(-280);
+        e.preventDefault();
       }
     };
 
     window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("keydown", onKeyDown);
 
     function frame() {
       currentProgress += (targetProgress - currentProgress) * 0.16;
@@ -219,34 +208,41 @@ export default function MetroHero({
         videoRef.current.style.transform = `scale(${scale})`;
       }
 
-      // Title & Subtitle Fade & Blur
+      // Percentage Indicator
+      if (percentBadgeRef.current) {
+        const pct = Math.round(currentProgress * 100);
+        percentBadgeRef.current.innerText = `${pct}%`;
+      }
+
+      // Title & Subtitle Fade & Blur as user scrolls down
       if (titleRef.current) {
-        const t = 1 - clamp(currentProgress / 0.35, 0, 1);
+        const t = 1 - clamp(currentProgress / 0.38, 0, 1);
         titleRef.current.style.opacity = String(t);
         titleRef.current.style.transform = `translateY(${(1 - t) * -28}px) scale(${0.96 + t * 0.04})`;
         titleRef.current.style.filter = `blur(${(1 - t) * 12}px)`;
       }
 
       if (subtitleRef.current) {
-        const t = 1 - clamp(currentProgress / 0.30, 0, 1);
+        const t = 1 - clamp(currentProgress / 0.32, 0, 1);
         subtitleRef.current.style.opacity = String(t);
         subtitleRef.current.style.transform = `translateY(${(1 - t) * -16}px)`;
       }
 
-      // Hint Fade
+      // Bottom Scroll Hint fades out as soon as user begins scrolling
       if (hintRef.current) {
-        hintRef.current.style.opacity = currentProgress > 0.04 ? "0" : "1";
+        hintRef.current.style.opacity = currentProgress > 0.05 ? "0" : "1";
       }
 
-      // Closing Tagline Reveal (0.65 -> 1.0)
+      // Closing Tagline Reveal: only appears as user approaches the end (0.65 -> 1.0)
       if (taglineRef.current) {
-        const t = clamp((currentProgress - 0.60) / 0.28, 0, 1);
+        const t = clamp((currentProgress - 0.65) / 0.30, 0, 1);
         taglineRef.current.style.opacity = String(t);
         taglineRef.current.style.transform = `translateY(${(1 - t) * 24}px) scale(${0.96 + t * 0.04})`;
         taglineRef.current.style.filter = `blur(${(1 - t) * 10}px)`;
+        taglineRef.current.style.pointerEvents = t > 0.7 ? "auto" : "none";
       }
 
-      // Progress Bar
+      // Bottom Scrub Progress Bar
       if (progressBarRef.current) {
         progressBarRef.current.style.transform = `scaleX(${currentProgress})`;
       }
@@ -257,7 +253,7 @@ export default function MetroHero({
     if (!reduceMotion) {
       rafId = requestAnimationFrame(frame);
     } else {
-      // Fallback for reduced motion: show static hero with direct reveal
+      setIsFullyScrolled(true);
       if (progressBarRef.current) progressBarRef.current.style.transform = "scaleX(1)";
     }
 
@@ -268,9 +264,10 @@ export default function MetroHero({
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("keydown", onKeyDown);
       cancelAnimationFrame(rafId);
     };
-  }, [scrubDistance, triggerTransition, activeVideoSrc, videoError]);
+  }, [scrubDistance, triggerCompletion, activeVideoSrc, videoError]);
 
   return (
     <div
@@ -280,17 +277,21 @@ export default function MetroHero({
       style={{
         position: "relative",
         height: "100vh",
-        minHeight: "100dvh",
         width: "100%",
         overflow: "hidden",
         background: COL_BG,
+        opacity: isTransitioning ? 0 : 1,
+        transform: isTransitioning ? "translateY(-40px) scale(0.98)" : "none",
+        transition: "opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)",
+        touchAction: "none",
+        userSelect: "none",
         ...style,
       }}
     >
-      {/* Background Poster Fallback (always rendered underneath video) */}
+      {/* Background Poster Fallback (underneath video) */}
       <img
         src={posterSrc}
-        alt="Campus Care Collegiate Environment"
+        alt="Campus Care Collegiate Architecture"
         style={{
           position: "absolute",
           inset: 0,
@@ -334,12 +335,12 @@ export default function MetroHero({
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(ellipse at 50% 40%, rgba(13, 60, 54, 0.45) 0%, rgba(5, 15, 14, 0.75) 60%, rgba(3, 8, 7, 0.92) 100%), linear-gradient(180deg, rgba(5,15,14,0.4) 0%, transparent 25%, rgba(5,15,14,0.2) 65%, rgba(5,15,14,0.95) 100%)",
+            "radial-gradient(ellipse at 50% 40%, rgba(13, 60, 54, 0.45) 0%, rgba(5, 15, 14, 0.75) 60%, rgba(3, 8, 7, 0.94) 100%), linear-gradient(180deg, rgba(5,15,14,0.4) 0%, transparent 25%, rgba(5,15,14,0.2) 65%, rgba(5,15,14,0.96) 100%)",
           pointerEvents: "none",
         }}
       />
 
-      {/* Top Navbar / Brand Header */}
+      {/* Top Navbar / Brand Header (NO SHORTCUTS - strictly branding) */}
       <header
         style={{
           position: "absolute",
@@ -400,42 +401,58 @@ export default function MetroHero({
           </div>
         </div>
 
-        {/* Quick Skip Button */}
-        <button
-          type="button"
-          onClick={handleSkipClick}
+        {/* Right Status Badge (No shortcut buttons) */}
+        <div
           style={{
-            background: "rgba(255, 255, 255, 0.08)",
-            border: "1px solid rgba(255, 255, 255, 0.16)",
-            borderRadius: 9999,
-            padding: "8px 18px",
-            color: "#ffffff",
-            fontFamily: SANS,
-            fontSize: 12,
-            fontWeight: 600,
-            letterSpacing: "0.05em",
-            cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: 7,
+            gap: 9,
+            padding: "8px 16px",
+            borderRadius: 9999,
+            background: "rgba(255, 255, 255, 0.06)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
             backdropFilter: "blur(12px)",
-            transition: "all 0.25s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(45, 212, 191, 0.2)";
-            e.currentTarget.style.borderColor = "rgba(45, 212, 191, 0.4)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
-            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.16)";
           }}
         >
-          <span>Sign In Directly</span>
-          <ArrowDown size={14} />
-        </button>
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: COL_EMERALD,
+              boxShadow: "0 0 10px #2dd4bf",
+            }}
+          />
+          <span
+            style={{
+              fontFamily: SANS,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.12em",
+              color: "rgba(255,255,255,0.85)",
+              textTransform: "uppercase",
+            }}
+          >
+            EST. 2026 • NORTHFIELD
+          </span>
+          <span
+            ref={percentBadgeRef}
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 11,
+              fontWeight: 700,
+              color: COL_EMERALD,
+              marginLeft: 4,
+              borderLeft: "1px solid rgba(255,255,255,0.15)",
+              paddingLeft: 8,
+            }}
+          >
+            0%
+          </span>
+        </div>
       </header>
 
-      {/* Opening Intro Content (Stage 1 Start) */}
+      {/* Opening Intro Content (Stage 1 Start: 0% -> 35%) */}
       <div
         ref={titleRef}
         style={{
@@ -508,7 +525,7 @@ export default function MetroHero({
         </p>
       </div>
 
-      {/* Payoff Tagline (Stage 1 End: 0.65 -> 1.0) */}
+      {/* Payoff Tagline (Stage 1 End: 65% -> 100%) */}
       <div
         ref={taglineRef}
         style={{
@@ -536,7 +553,7 @@ export default function MetroHero({
             marginBottom: 14,
           }}
         >
-          RESOLUTION & GRIEVANCE REDRESSAL
+          GRIEVANCE REDRESSAL & SUPPORT
         </div>
         <span
           style={{
@@ -552,46 +569,47 @@ export default function MetroHero({
         >
           {tagline}
         </span>
-        <button
-          type="button"
-          onClick={handleSkipClick}
-          style={{
-            marginTop: 32,
-            background: "linear-gradient(135deg, #2dd4bf 0%, #0d9488 100%)",
-            border: "none",
-            borderRadius: 9999,
-            padding: "14px 34px",
-            color: "#042f2e",
-            fontFamily: SANS,
-            fontSize: 14,
-            fontWeight: 800,
-            letterSpacing: "0.04em",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 10,
-            boxShadow: "0 6px 28px rgba(45, 212, 191, 0.45)",
-            pointerEvents: "auto",
-            transition: "transform 0.2s ease, box-shadow 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-2px) scale(1.02)";
-            e.currentTarget.style.boxShadow = "0 8px 32px rgba(45, 212, 191, 0.55)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0) scale(1)";
-            e.currentTarget.style.boxShadow = "0 6px 28px rgba(45, 212, 191, 0.45)";
-          }}
-        >
-          <span>Proceed to Campus Portal</span>
-          <ChevronDown size={18} />
-        </button>
+
+        {/* Revealed ONLY when user has scrolled down completely to 100% */}
+        {isFullyScrolled && (
+          <button
+            type="button"
+            onClick={triggerCompletion}
+            style={{
+              marginTop: 34,
+              background: "linear-gradient(135deg, #2dd4bf 0%, #0d9488 100%)",
+              border: "none",
+              borderRadius: 9999,
+              padding: "16px 38px",
+              color: "#042f2e",
+              fontFamily: SANS,
+              fontSize: 15,
+              fontWeight: 800,
+              letterSpacing: "0.04em",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              boxShadow: "0 6px 32px rgba(45, 212, 191, 0.5)",
+              pointerEvents: "auto",
+              animation: "campus-button-pulse 2s infinite ease-in-out",
+            }}
+          >
+            <style>{`
+              @keyframes campus-button-pulse {
+                0%, 100% { transform: scale(1); box-shadow: 0 6px 32px rgba(45, 212, 191, 0.45); }
+                50% { transform: scale(1.03); box-shadow: 0 8px 36px rgba(45, 212, 191, 0.7); }
+              }
+            `}</style>
+            <span>Proceed to Sign In</span>
+            <ChevronDown size={18} />
+          </button>
+        )}
       </div>
 
-      {/* Floating Bottom Scroll Hint */}
+      {/* Floating Bottom Scroll Hint (Guides user to scroll DOWN) */}
       <div
         ref={hintRef}
-        onClick={handleSkipClick}
         style={{
           position: "absolute",
           left: "50%",
@@ -607,8 +625,8 @@ export default function MetroHero({
           fontWeight: 700,
           letterSpacing: "0.24em",
           transition: "opacity 0.4s ease",
-          cursor: "pointer",
           zIndex: 8,
+          pointerEvents: "none",
           textShadow: "0 2px 10px rgba(0,0,0,0.6)",
         }}
       >
@@ -662,7 +680,6 @@ export default function MetroHero({
         />
       </div>
 
-      {/* Signature if provided */}
       {signature && (
         <span
           style={{
@@ -685,7 +702,6 @@ export default function MetroHero({
             style={{
               color: "rgba(220,224,232,0.8)",
               textDecoration: "none",
-              transition: "color 0.2s ease",
             }}
           >
             {signature.name}

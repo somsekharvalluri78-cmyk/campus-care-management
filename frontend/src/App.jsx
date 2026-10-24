@@ -78,6 +78,7 @@ function App() {
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
   const [credentialsTab, setCredentialsTab] = useState('username');
+  const [introFinished, setIntroFinished] = useState(false);
   const profileMenuRef = useRef(null);
 
   useEffect(() => {
@@ -403,25 +404,22 @@ function App() {
   ];
 
   if (loading) return <div className="loading-screen"><span className="loader" />Connecting to Campus Care</div>;
-  if (!token || !user) return (
-    <div className="landing-experience" style={{ width: '100%', position: 'relative' }}>
-      <MetroHero
-        videoSrc="/campus-intro.webm"
-        posterSrc="/campus-hero-poster.jpg"
-        title="A BETTER CAMPUS STARTS WITH BEING HEARD."
-        subtitle="Every concern matters. Every voice deserves attention. Together, we can build a safer, smarter, and more supportive campus."
-        scrollHint="SCROLL TO EXPLORE"
-        tagline="YOUR CAMPUS. YOUR VOICE. OUR COMMITMENT."
-        onComplete={() => {
-          const el = document.getElementById('login-section');
-          if (el) el.scrollIntoView({ behavior: 'smooth' });
-        }}
-        onSkip={() => {
-          const el = document.getElementById('login-section');
-          if (el) el.scrollIntoView({ behavior: 'smooth' });
-        }}
-      />
-      <div id="login-section" style={{ width: '100%', position: 'relative' }}>
+  if (!token || !user) {
+    if (!introFinished) {
+      return (
+        <MetroHero
+          videoSrc="/campus-intro.webm"
+          posterSrc="/campus-hero-poster.jpg"
+          title="A BETTER CAMPUS STARTS WITH BEING HEARD."
+          subtitle="Every concern matters. Every voice deserves attention. Together, we can build a safer, smarter, and more supportive campus."
+          scrollHint="SCROLL DOWN TO EXPLORE"
+          tagline="YOUR CAMPUS. YOUR VOICE. OUR COMMITMENT."
+          onComplete={() => setIntroFinished(true)}
+        />
+      );
+    }
+    return (
+      <div id="login-section" className="login-stage-revealed" style={{ width: '100%', minHeight: '100vh', position: 'relative' }}>
         <LoginPage
           identifier={loginIdentifier}
           password={loginPassword}
@@ -434,8 +432,8 @@ function App() {
           onRegister={registerStudent}
         />
       </div>
-    </div>
-  );
+    );
+  }
 
   const visibleComplaints = filtered.slice(0, activeView === 'overview' ? 5 : 100);
   return (
