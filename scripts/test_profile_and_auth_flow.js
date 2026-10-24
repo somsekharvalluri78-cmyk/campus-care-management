@@ -107,7 +107,7 @@ async function run() {
   // 2. Test updating personal details (semester, year, section, phone)
   const profileRes = await patchJson('/auth/profile', {
     fullName: 'valluri somsekhar',
-    email: 'somsekhar@northfield.college',
+    email: 'somsekhar@campuscare.edu',
     departmentId: 1, // CSE
     year: 3,
     semester: 2,

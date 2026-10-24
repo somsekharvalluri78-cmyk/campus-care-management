@@ -409,7 +409,8 @@ function App() {
       return (
         <MetroHero
           videoSrc="/campus-intro.webm"
-          posterSrc="/campus-hero-poster.jpg"
+          posterSrc="/campus-wallpaper.jpg"
+          secondaryPosterSrc="/campus-town-life.jpg"
           title="A BETTER CAMPUS STARTS WITH BEING HEARD."
           subtitle="Every concern matters. Every voice deserves attention. Together, we can build a safer, smarter, and more supportive campus."
           scrollHint="SCROLL DOWN TO EXPLORE"
@@ -440,7 +441,7 @@ function App() {
     <div className="app-shell">
       <aside className={`sidebar ${mobileMenuOpen ? 'sidebar-open' : ''}`}>
         <div className="brand-lockup"><div className="brand-mark"><span>c</span></div><div><strong>campus<span>care</span></strong><small>STUDENT SERVICES</small></div></div>
-        <div className="campus-chip"><span className="campus-dot" /> NORTHFIELD COLLEGE <ChevronDown size={13} /></div>
+        <div className="campus-chip"><span className="campus-dot" /> CAMPUS CARE PORTAL <ChevronDown size={13} /></div>
         <div className="nav-caption">WORKSPACE</div>
         <nav className="primary-nav" aria-label="Main navigation">
           {navItems.map(({ id, label, icon: Icon }) => (
@@ -2173,7 +2174,7 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
   }
 
   return <main className="login-screen">
-    <section className="login-art"><div className="login-art-top"><div className="brand-lockup brand-lockup-light"><div className="brand-mark"><span>c</span></div><div><strong>campus<span>care</span></strong><small>STUDENT SERVICES</small></div></div><span className="art-index">EST. 2026 <span>•</span> NORTHFIELD COLLEGE</span></div>
+    <section className="login-art"><div className="login-art-top"><div className="brand-lockup brand-lockup-light"><div className="brand-mark"><span>c</span></div><div><strong>campus<span>care</span></strong><small>STUDENT SERVICES</small></div></div><span className="art-index">CAMPUS CARE <span>•</span> STUDENT SERVICES</span></div>
       <div className="art-copy"><div className="eyebrow eyebrow-light"><span /> A BETTER CAMPUS, TOGETHER</div><h1>Be heard.<br /><em>We’re listening.</em></h1><p>One thoughtful conversation can make campus life better for everyone. Tell us what needs attention and follow every step.</p><div className="art-stat"><div className="stat-avatars"><span>AM</span><span>JL</span><span>SK</span><span>+</span></div><div><strong>A campus that cares</strong><small>Built around your voice</small></div><div className="art-spark"><Sparkles size={18} /></div></div></div>
       <div className="art-orbit orbit-one" /><div className="art-orbit orbit-two" /><div className="art-footer"><span>LISTEN CLOSELY. ACT THOUGHTFULLY.</span><span>01 / 03</span></div>
     </section>
@@ -2241,7 +2242,7 @@ function LoginPage({ identifier, password, error, pending, onIdentifier, onPassw
       <div className="auth-switch">{mode === 'login' ? <>New to Campus Care? <button type="button" onClick={() => { setMode('register'); setFormError(''); setSelectedDepartmentId(''); setSelectedYear(''); setSelectedSemester(1); }}>Create a student account</button></> : <>Already registered? <button type="button" onClick={() => { setMode('login'); setFormError(''); setSelectedDepartmentId(''); setSelectedYear(''); setSelectedSemester(1); }}>Sign in instead</button></>}</div>
       {mode === 'login' && import.meta.env.DEV && <><div className="demo-divider"><span /> QUICK DEMO ACCESS <span /></div><div className="demo-accounts">{DEMO_ACCOUNTS.map(({ label, identifier: demoId, icon: Icon }) => <button key={label} onClick={() => onDemo(demoId)} className="demo-account"><Icon size={17} /><span><strong>{label}</strong><small>{demoId}</small></span><ArrowUpRight size={14} className="demo-arrow" /></button>)}</div></>}
       <div className="login-security"><ShieldCheck size={15} /> Your information is only visible to authorized staff.</div>
-    </div><div className="login-form-footer">© 2026 Northfield College <span>•</span> Student support, made simple</div></section>
+    </div><div className="login-form-footer">© Campus Care Portal <span>•</span> Student support, made simple</div></section>
   </main>;
 }
 
@@ -2524,7 +2525,7 @@ function Overview({
           <span className="strip-icon"><FilePlus2 size={18} /></span>
           <span>
             <strong>Something on your mind?</strong>
-            <small>Share a concern with the right people at Northfield.</small>
+            <small>Share a concern with the right department team.</small>
           </span>
           <span className="strip-action">Submit a complaint <ArrowRight size={15} /></span>
         </button>
@@ -2785,9 +2786,9 @@ function SubmitPage({ user, categories, onSubmit, onCancel }) {
               </div>
               <input
                 name="collegeName"
-                placeholder="Enter full college name (no character limit)"
+                placeholder="Enter full college / institute name (no character limit)"
                 className="f-input-manual"
-                defaultValue="Northfield College of Engineering & Technology"
+                defaultValue=""
                 required
               />
             </div>
@@ -2800,9 +2801,9 @@ function SubmitPage({ user, categories, onSubmit, onCancel }) {
               </div>
               <input
                 name="campusName"
-                placeholder="e.g. Northfield Main Campus, South Lake Campus, City Extension"
+                placeholder="e.g. Main Campus, City Extension Campus, South Campus"
                 className="f-input-manual"
-                defaultValue="Northfield Main Campus"
+                defaultValue=""
                 required
               />
             </div>

@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, Sparkles, Compass } from "lucide-react";
 
 export interface MetroHeroProps {
   videoSrc?: string;
   posterSrc?: string;
+  secondaryPosterSrc?: string;
   title?: string;
   subtitle?: string;
   scrollHint?: string;
@@ -17,13 +18,14 @@ export interface MetroHeroProps {
   onComplete?: () => void;
 }
 
+const DEFAULT_POSTER = "/campus-wallpaper.jpg";
+const DEFAULT_SECONDARY_POSTER = "/campus-town-life.jpg";
 const DEFAULT_VIDEO = "/campus-intro.webm";
 const FALLBACK_VIDEO = "https://cdn.21st.dev/assets/mirror/21/21a77eac28eacbb7e142016eefeaa0b4a766619e51113629a3bc6df6af066c0f.mp4";
-const DEFAULT_POSTER = "/campus-hero-poster.jpg";
 const SANS = "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-const COL_BG = "#050f0e";
-const COL_TEXT = "#f2f7f4";
+const COL_BG = "#061311";
+const COL_TEXT = "#ffffff";
 const COL_EMERALD = "#2dd4bf";
 
 function clamp(v: number, min: number, max: number) {
@@ -33,6 +35,7 @@ function clamp(v: number, min: number, max: number) {
 export default function MetroHero({
   videoSrc = DEFAULT_VIDEO,
   posterSrc = DEFAULT_POSTER,
+  secondaryPosterSrc = DEFAULT_SECONDARY_POSTER,
   title = "A BETTER CAMPUS STARTS WITH BEING HEARD.",
   subtitle = "Every concern matters. Every voice deserves attention. Together, we can build a safer, smarter, and more supportive campus.",
   scrollHint = "SCROLL DOWN TO EXPLORE",
@@ -45,6 +48,8 @@ export default function MetroHero({
 }: MetroHeroProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const scene1Ref = useRef<HTMLDivElement>(null);
+  const scene2Ref = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLDivElement>(null);
   const hintRef = useRef<HTMLDivElement>(null);
@@ -57,6 +62,7 @@ export default function MetroHero({
   const [activeVideoSrc, setActiveVideoSrc] = useState(videoSrc);
   const [isFullyScrolled, setIsFullyScrolled] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isAutoMotionActive, setIsAutoMotionActive] = useState(false);
 
   const triggerCompletion = useCallback(() => {
     setIsTransitioning(true);
@@ -70,7 +76,7 @@ export default function MetroHero({
   useEffect(() => {
     const video = videoRef.current;
     const section = sectionRef.current;
-    if (!video || !section) return;
+    if (!section) return;
 
     const reduceMotion =
       typeof window !== "undefined" &&
@@ -85,12 +91,45 @@ export default function MetroHero({
     let touchStartY = 0;
     let completedTriggered = false;
 
+    // 2-MINUTE INACTIVITY CONTINUOUS MOTION CONTROLLER
+    const IDLE_TIMEOUT_MS = 120_000; // 2 minutes (120,000 ms)
+    let idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let isAutoMoving = false;
+    let autoMoveStartTime = 0;
+
+    function startAutoMotion() {
+      // Auto-motion only activates if user has not completed the scrub and has not entered login
+      if (!completedTriggered && targetProgress < 0.92) {
+        isAutoMoving = true;
+        autoMoveStartTime = performance.now();
+        setIsAutoMotionActive(true);
+      }
+    }
+
+    function resetIdleTimer() {
+      if (isAutoMoving) {
+        isAutoMoving = false;
+        setIsAutoMotionActive(false);
+      }
+      if (idleTimeoutId) {
+        clearTimeout(idleTimeoutId);
+      }
+      idleTimeoutId = setTimeout(() => {
+        startAutoMotion();
+      }, IDLE_TIMEOUT_MS);
+    }
+
+    // Initialize 2-minute timer on load
+    resetIdleTimer();
+
     const onLoadedData = () => {
-      duration = video.duration || 0;
-      setReady(true);
-      setVideoError(false);
-      if (reduceMotion && duration > 0) {
-        video.currentTime = duration * 0.5;
+      if (video) {
+        duration = video.duration || 0;
+        setReady(true);
+        setVideoError(false);
+        if (reduceMotion && duration > 0) {
+          video.currentTime = duration * 0.5;
+        }
       }
     };
 
@@ -103,32 +142,34 @@ export default function MetroHero({
       }
     };
 
-    video.addEventListener("loadeddata", onLoadedData);
-    video.addEventListener("error", onError);
+    if (video) {
+      video.addEventListener("loadeddata", onLoadedData);
+      video.addEventListener("error", onError);
 
-    // Warm up mobile video playback silently
-    const kickstartLoad = () => {
-      const p = video.play();
-      if (p && typeof p.then === "function") {
-        p.then(() => video.pause()).catch(() => {});
-      } else {
-        video.pause();
-      }
-    };
-    kickstartLoad();
+      const kickstartLoad = () => {
+        const p = video.play();
+        if (p && typeof p.then === "function") {
+          p.then(() => video.pause()).catch(() => {});
+        } else {
+          video.pause();
+        }
+      };
+      kickstartLoad();
 
-    const onSeeked = () => {
-      isSeeking = false;
-      if (pendingTime !== null) {
-        const t = pendingTime;
-        pendingTime = null;
-        isSeeking = true;
-        video.currentTime = t;
-      }
-    };
-    video.addEventListener("seeked", onSeeked);
+      const onSeeked = () => {
+        isSeeking = false;
+        if (pendingTime !== null) {
+          const t = pendingTime;
+          pendingTime = null;
+          isSeeking = true;
+          video.currentTime = t;
+        }
+      };
+      video.addEventListener("seeked", onSeeked);
+    }
 
     function seekTo(t: number) {
+      if (!video) return;
       if (isSeeking) {
         pendingTime = t;
         return;
@@ -138,6 +179,9 @@ export default function MetroHero({
     }
 
     function addDelta(deltaY: number) {
+      // Any user interaction cancels screensaver auto-motion and resets the 2-minute idle timer
+      resetIdleTimer();
+
       // deltaY > 0 means user is scrolling DOWN (moving forward in video)
       // deltaY < 0 means user is scrolling UP (moving backward in video)
       const next = clamp(targetProgress + deltaY / scrubDistance, 0, 1);
@@ -164,6 +208,7 @@ export default function MetroHero({
     };
 
     const onTouchStart = (e: TouchEvent) => {
+      resetIdleTimer();
       touchStartY = e.touches[0]?.clientY ?? 0;
     };
 
@@ -191,20 +236,57 @@ export default function MetroHero({
       }
     };
 
+    const onMouseMove = () => {
+      resetIdleTimer();
+    };
+
     window.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: false });
     window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
 
     function frame() {
-      currentProgress += (targetProgress - currentProgress) * 0.16;
+      // 2-MINUTE INACTIVITY LIVE MOTION CONTROLLER
+      if (isAutoMoving) {
+        const elapsed = (performance.now() - autoMoveStartTime) / 1000;
+        // Continuous gentle oscillation across the 4K quad and collegiate town (0.12 <-> 0.68)
+        // CRITICAL: NEVER EXCEEDS 0.70 - CANNOT ENTER INTO LOGIN PAGE!
+        const autoP = 0.40 + Math.sin(elapsed * 0.32) * 0.28;
+        targetProgress = clamp(autoP, 0.12, 0.70);
+        setIsFullyScrolled(false);
+      }
 
-      if (duration > 0 && !videoError) {
+      currentProgress += (targetProgress - currentProgress) * 0.14;
+
+      if (duration > 0 && !videoError && video) {
         seekTo(currentProgress * duration);
       }
 
+      // 4K SCENE 1: AERIAL CAMPUS QUAD & COLLEGIATE TOWN
+      if (scene1Ref.current) {
+        const p = currentProgress;
+        const scale = 1 + p * 0.18;
+        const panX = -p * 45; // Camera glide towards the collegiate town on the right
+        const panY = -p * 22;
+        const opacity = p < 0.35 ? 1 : 1 - clamp((p - 0.35) / 0.30, 0, 1);
+        scene1Ref.current.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${scale})`;
+        scene1Ref.current.style.opacity = String(opacity);
+      }
+
+      // 4K SCENE 2: BUSTLING COLLEGIATE TOWN AVENUE & STUDENT LIFE
+      if (scene2Ref.current) {
+        const p = currentProgress;
+        const opacity = p < 0.30 ? 0 : clamp((p - 0.30) / 0.28, 0, 1);
+        const scale = 1.05 + clamp((p - 0.30), 0, 1) * 0.15;
+        const panY = (1 - p) * 20;
+        scene2Ref.current.style.transform = `translate3d(0, ${panY}px, 0) scale(${scale})`;
+        scene2Ref.current.style.opacity = String(opacity);
+      }
+
+      // Video Layer Sync (if active)
       if (videoRef.current) {
-        const scale = 1 + currentProgress * 0.08;
+        const scale = 1 + currentProgress * 0.12;
         videoRef.current.style.transform = `scale(${scale})`;
       }
 
@@ -214,31 +296,31 @@ export default function MetroHero({
         percentBadgeRef.current.innerText = `${pct}%`;
       }
 
-      // Title & Subtitle Fade & Blur as user scrolls down
+      // Title & Subtitle Fade & Blur as user scrubs forward
       if (titleRef.current) {
-        const t = 1 - clamp(currentProgress / 0.38, 0, 1);
+        const t = 1 - clamp(currentProgress / 0.36, 0, 1);
         titleRef.current.style.opacity = String(t);
         titleRef.current.style.transform = `translateY(${(1 - t) * -28}px) scale(${0.96 + t * 0.04})`;
-        titleRef.current.style.filter = `blur(${(1 - t) * 12}px)`;
+        titleRef.current.style.filter = `blur(${(1 - t) * 10}px)`;
       }
 
       if (subtitleRef.current) {
-        const t = 1 - clamp(currentProgress / 0.32, 0, 1);
+        const t = 1 - clamp(currentProgress / 0.30, 0, 1);
         subtitleRef.current.style.opacity = String(t);
         subtitleRef.current.style.transform = `translateY(${(1 - t) * -16}px)`;
       }
 
-      // Bottom Scroll Hint fades out as soon as user begins scrolling
+      // Bottom Scroll Hint fades out as soon as user begins scrolling or auto-motion starts
       if (hintRef.current) {
         hintRef.current.style.opacity = currentProgress > 0.05 ? "0" : "1";
       }
 
-      // Closing Tagline Reveal: only appears as user approaches the end (0.65 -> 1.0)
+      // Closing Tagline Reveal: only appears as user approaches the end (0.70 -> 1.0)
       if (taglineRef.current) {
-        const t = clamp((currentProgress - 0.65) / 0.30, 0, 1);
+        const t = clamp((currentProgress - 0.70) / 0.25, 0, 1);
         taglineRef.current.style.opacity = String(t);
         taglineRef.current.style.transform = `translateY(${(1 - t) * 24}px) scale(${0.96 + t * 0.04})`;
-        taglineRef.current.style.filter = `blur(${(1 - t) * 10}px)`;
+        taglineRef.current.style.filter = `blur(${(1 - t) * 8}px)`;
         taglineRef.current.style.pointerEvents = t > 0.7 ? "auto" : "none";
       }
 
@@ -258,13 +340,16 @@ export default function MetroHero({
     }
 
     return () => {
-      video.removeEventListener("loadeddata", onLoadedData);
-      video.removeEventListener("error", onError);
-      video.removeEventListener("seeked", onSeeked);
+      if (idleTimeoutId) clearTimeout(idleTimeoutId);
+      if (video) {
+        video.removeEventListener("loadeddata", onLoadedData);
+        video.removeEventListener("error", onError);
+      }
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mousemove", onMouseMove);
       cancelAnimationFrame(rafId);
     };
   }, [scrubDistance, triggerCompletion, activeVideoSrc, videoError]);
@@ -288,29 +373,42 @@ export default function MetroHero({
         ...style,
       }}
     >
-      {/* Background Poster Fallback (underneath video) */}
-      <img
-        src={posterSrc}
-        alt="Campus Care Collegiate Architecture"
+      {/* 4K SCENE 1: Crystal-Clear Aerial Campus Quad & Collegiate Town */}
+      <div
+        ref={scene1Ref}
         style={{
           position: "absolute",
           inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
+          backgroundImage: `url(${posterSrc})`,
+          backgroundPosition: "center center",
+          backgroundSize: "cover",
           transformOrigin: "center center",
-          opacity: 0.9,
-          filter: "brightness(0.85) contrast(1.05)",
-          pointerEvents: "none",
+          willChange: "transform, opacity",
+          filter: "contrast(1.02) saturate(1.06)",
         }}
       />
 
-      {/* Cinematic Ambient Overlay Video */}
+      {/* 4K SCENE 2: Crystal-Clear Bustling Collegiate Town & Campus Life */}
+      <div
+        ref={scene2Ref}
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `url(${secondaryPosterSrc})`,
+          backgroundPosition: "center center",
+          backgroundSize: "cover",
+          transformOrigin: "center center",
+          willChange: "transform, opacity",
+          opacity: 0,
+          filter: "contrast(1.02) saturate(1.06)",
+        }}
+      />
+
+      {/* Ambient Motion Video Overlay (subtle, crystal-clear blend without grain) */}
       {!videoError && (
         <video
           ref={videoRef}
           src={activeVideoSrc}
-          poster={posterSrc}
           muted
           playsInline
           preload="auto"
@@ -320,22 +418,23 @@ export default function MetroHero({
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            opacity: ready ? 0.92 : 0,
+            opacity: ready ? 0.45 : 0,
             transformOrigin: "center center",
             willChange: "transform",
             transition: "opacity 0.8s ease-in-out",
             pointerEvents: "none",
+            mixBlendMode: "screen",
           }}
         />
       )}
 
-      {/* Premium Multi-Stop Gradient Veil */}
+      {/* Crystal-Clear Lens Vignette (Zero muddy green veils - 100% luminous 4K clarity) */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(ellipse at 50% 40%, rgba(13, 60, 54, 0.45) 0%, rgba(5, 15, 14, 0.75) 60%, rgba(3, 8, 7, 0.94) 100%), linear-gradient(180deg, rgba(5,15,14,0.4) 0%, transparent 25%, rgba(5,15,14,0.2) 65%, rgba(5,15,14,0.96) 100%)",
+            "linear-gradient(180deg, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0.12) 18%, transparent 35%, transparent 68%, rgba(0, 0, 0, 0.25) 82%, rgba(0, 0, 0, 0.70) 100%)",
           pointerEvents: "none",
         }}
       />
@@ -382,6 +481,7 @@ export default function MetroHero({
                 letterSpacing: "-0.02em",
                 color: "#ffffff",
                 lineHeight: 1.1,
+                textShadow: "0 2px 10px rgba(0,0,0,0.7)",
               }}
             >
               campus<span style={{ color: COL_EMERALD }}>care</span>
@@ -392,8 +492,9 @@ export default function MetroHero({
                 fontSize: 10,
                 fontWeight: 600,
                 letterSpacing: "0.15em",
-                color: "rgba(255,255,255,0.6)",
+                color: "rgba(255,255,255,0.75)",
                 textTransform: "uppercase",
+                textShadow: "0 1px 8px rgba(0,0,0,0.7)",
               }}
             >
               Student Support Services
@@ -401,7 +502,7 @@ export default function MetroHero({
           </div>
         </div>
 
-        {/* Right Status Badge (No shortcut buttons) */}
+        {/* Right Status Badge (Official portal indicator + live scrub progress) */}
         <div
           style={{
             display: "flex",
@@ -409,9 +510,10 @@ export default function MetroHero({
             gap: 9,
             padding: "8px 16px",
             borderRadius: 9999,
-            background: "rgba(255, 255, 255, 0.06)",
-            border: "1px solid rgba(255, 255, 255, 0.12)",
-            backdropFilter: "blur(12px)",
+            background: "rgba(0, 0, 0, 0.35)",
+            border: "1px solid rgba(255, 255, 255, 0.16)",
+            backdropFilter: "blur(14px)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
           }}
         >
           <span
@@ -429,11 +531,11 @@ export default function MetroHero({
               fontSize: 11,
               fontWeight: 700,
               letterSpacing: "0.12em",
-              color: "rgba(255,255,255,0.85)",
+              color: "rgba(255,255,255,0.92)",
               textTransform: "uppercase",
             }}
           >
-            EST. 2026 • NORTHFIELD
+            CAMPUS CARE • OFFICIAL PORTAL
           </span>
           <span
             ref={percentBadgeRef}
@@ -443,7 +545,7 @@ export default function MetroHero({
               fontWeight: 700,
               color: COL_EMERALD,
               marginLeft: 4,
-              borderLeft: "1px solid rgba(255,255,255,0.15)",
+              borderLeft: "1px solid rgba(255,255,255,0.2)",
               paddingLeft: 8,
             }}
           >
@@ -451,6 +553,47 @@ export default function MetroHero({
           </span>
         </div>
       </header>
+
+      {/* 2-Minute Idle Continuous Screensaver Indicator */}
+      {isAutoMotionActive && (
+        <div
+          style={{
+            position: "absolute",
+            top: 76,
+            right: "clamp(20px, 4vw, 48px)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "6px 14px",
+            borderRadius: 9999,
+            background: "rgba(13, 148, 136, 0.32)",
+            border: "1px solid rgba(45, 212, 191, 0.45)",
+            backdropFilter: "blur(14px)",
+            color: "#5eead4",
+            fontFamily: SANS,
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            zIndex: 10,
+            boxShadow: "0 6px 20px rgba(0,0,0,0.3)",
+            animation: "campus-fade-in 0.4s ease",
+          }}
+        >
+          <style>{`
+            @keyframes campus-fade-in {
+              from { opacity: 0; transform: translateY(-6px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes campus-dot-pulse {
+              0%, 100% { opacity: 1; transform: scale(1); }
+              50% { opacity: 0.4; transform: scale(0.85); }
+            }
+          `}</style>
+          <Compass size={13} style={{ animation: "campus-dot-pulse 2s infinite" }} />
+          <span>Cinematic Live Motion • Scroll to explore</span>
+        </div>
+      )}
 
       {/* Opening Intro Content (Stage 1 Start: 0% -> 35%) */}
       <div
@@ -475,8 +618,8 @@ export default function MetroHero({
             gap: 7,
             padding: "6px 14px",
             borderRadius: 9999,
-            background: "rgba(45, 212, 191, 0.12)",
-            border: "1px solid rgba(45, 212, 191, 0.3)",
+            background: "rgba(0, 0, 0, 0.4)",
+            border: "1px solid rgba(45, 212, 191, 0.4)",
             color: COL_EMERALD,
             fontFamily: SANS,
             fontSize: "clamp(11px, 1.2vw, 12px)",
@@ -484,11 +627,12 @@ export default function MetroHero({
             letterSpacing: "0.14em",
             textTransform: "uppercase",
             marginBottom: 20,
-            backdropFilter: "blur(8px)",
+            backdropFilter: "blur(12px)",
+            boxShadow: "0 4px 18px rgba(0,0,0,0.3)",
           }}
         >
           <Sparkles size={13} />
-          NORTHFIELD COLLEGE • CAMPUS CARE
+          CAMPUS CARE • STUDENT SUPPORT SERVICES
         </div>
 
         <h1
@@ -499,7 +643,7 @@ export default function MetroHero({
             lineHeight: 1.08,
             letterSpacing: "-0.03em",
             color: COL_TEXT,
-            textShadow: "0 4px 36px rgba(0,0,0,0.65)",
+            textShadow: "0 4px 36px rgba(0,0,0,0.85)",
             maxWidth: 1050,
             margin: "0 0 20px 0",
             willChange: "transform, filter, opacity",
@@ -515,17 +659,17 @@ export default function MetroHero({
             fontWeight: 500,
             fontSize: "clamp(15px, 1.6vw, 20px)",
             lineHeight: 1.5,
-            color: "rgba(235, 245, 242, 0.85)",
+            color: "rgba(255, 255, 255, 0.92)",
             maxWidth: 720,
             margin: 0,
-            textShadow: "0 2px 18px rgba(0,0,0,0.6)",
+            textShadow: "0 2px 18px rgba(0,0,0,0.8)",
           }}
         >
           {subtitle}
         </p>
       </div>
 
-      {/* Payoff Tagline (Stage 1 End: 65% -> 100%) */}
+      {/* Payoff Tagline (Stage 1 End: 70% -> 100%) */}
       <div
         ref={taglineRef}
         style={{
@@ -551,6 +695,7 @@ export default function MetroHero({
             letterSpacing: "0.2em",
             textTransform: "uppercase",
             marginBottom: 14,
+            textShadow: "0 2px 12px rgba(0,0,0,0.8)",
           }}
         >
           GRIEVANCE REDRESSAL & SUPPORT
@@ -563,7 +708,7 @@ export default function MetroHero({
             lineHeight: 1.15,
             letterSpacing: "-0.02em",
             color: "#ffffff",
-            textShadow: "0 6px 36px rgba(0,0,0,0.8)",
+            textShadow: "0 6px 36px rgba(0,0,0,0.9)",
             maxWidth: 860,
           }}
         >
@@ -590,15 +735,15 @@ export default function MetroHero({
               display: "inline-flex",
               alignItems: "center",
               gap: 10,
-              boxShadow: "0 6px 32px rgba(45, 212, 191, 0.5)",
+              boxShadow: "0 8px 36px rgba(45, 212, 191, 0.55)",
               pointerEvents: "auto",
               animation: "campus-button-pulse 2s infinite ease-in-out",
             }}
           >
             <style>{`
               @keyframes campus-button-pulse {
-                0%, 100% { transform: scale(1); box-shadow: 0 6px 32px rgba(45, 212, 191, 0.45); }
-                50% { transform: scale(1.03); box-shadow: 0 8px 36px rgba(45, 212, 191, 0.7); }
+                0%, 100% { transform: scale(1); box-shadow: 0 8px 36px rgba(45, 212, 191, 0.5); }
+                50% { transform: scale(1.03); box-shadow: 0 10px 42px rgba(45, 212, 191, 0.8); }
               }
             `}</style>
             <span>Proceed to Sign In</span>
@@ -619,7 +764,7 @@ export default function MetroHero({
           flexDirection: "column",
           alignItems: "center",
           gap: 10,
-          color: "rgba(240, 248, 245, 0.85)",
+          color: "rgba(255, 255, 255, 0.95)",
           fontFamily: SANS,
           fontSize: "clamp(11px, 1.2vw, 12px)",
           fontWeight: 700,
@@ -627,7 +772,7 @@ export default function MetroHero({
           transition: "opacity 0.4s ease",
           zIndex: 8,
           pointerEvents: "none",
-          textShadow: "0 2px 10px rgba(0,0,0,0.6)",
+          textShadow: "0 2px 14px rgba(0,0,0,0.85)",
         }}
       >
         <span>{scrollHint}</span>
@@ -636,19 +781,19 @@ export default function MetroHero({
             width: 32,
             height: 32,
             borderRadius: 9999,
-            background: "rgba(255,255,255,0.08)",
-            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(0,0,0,0.35)",
+            border: "1px solid rgba(255,255,255,0.25)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            backdropFilter: "blur(8px)",
+            backdropFilter: "blur(10px)",
             animation: "campus-hero-bounce 1.6s ease-in-out infinite",
           }}
         >
           <style>{`
             @keyframes campus-hero-bounce {
-              0%, 100% { transform: translateY(0); opacity: 0.7; }
-              50% { transform: translateY(4px); opacity: 1; }
+              0%, 100% { transform: translateY(0); opacity: 0.8; }
+              50% { transform: translateY(5px); opacity: 1; }
             }
           `}</style>
           <ChevronDown size={16} />
@@ -663,7 +808,7 @@ export default function MetroHero({
           right: 0,
           bottom: 0,
           height: 3,
-          background: "rgba(255, 255, 255, 0.12)",
+          background: "rgba(255, 255, 255, 0.15)",
           zIndex: 9,
         }}
       >
@@ -675,7 +820,7 @@ export default function MetroHero({
             background: "linear-gradient(90deg, #0d9488, #2dd4bf, #a7f3d0)",
             transform: "scaleX(0)",
             transformOrigin: "left center",
-            boxShadow: "0 0 12px rgba(45, 212, 191, 0.7)",
+            boxShadow: "0 0 14px rgba(45, 212, 191, 0.8)",
           }}
         />
       </div>
@@ -690,8 +835,9 @@ export default function MetroHero({
             fontWeight: 500,
             fontSize: "clamp(11px, 1.4vw, 13px)",
             letterSpacing: "0.01em",
-            color: "rgba(220,224,232,0.6)",
+            color: "rgba(255,255,255,0.7)",
             zIndex: 10,
+            textShadow: "0 1px 8px rgba(0,0,0,0.8)",
           }}
         >
           by{" "}
@@ -700,7 +846,7 @@ export default function MetroHero({
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              color: "rgba(220,224,232,0.8)",
+              color: "rgba(255,255,255,0.9)",
               textDecoration: "none",
             }}
           >
